@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "558265940466",
+    "project_id": "daily-utility-faheem",
+    "storage_bucket": "daily-utility-faheem.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:558265940466:android:6f35e818db39220cf8536b",
+        "android_client_info": {
+          "package_name": "com.faheem.pocketapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "558265940466-l4560r75ce8vpkqkl2ok53p75oohfiks.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUbYd2yiHU40SBrsicKI3tDARmQEtAp6M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "558265940466-l4560r75ce8vpkqkl2ok53p75oohfiks.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
