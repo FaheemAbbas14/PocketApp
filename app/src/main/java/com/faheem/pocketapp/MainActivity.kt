@@ -1,8 +1,6 @@
 package com.faheem.pocketapp
 
 import android.Manifest
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -26,40 +24,27 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.Money
-import androidx.compose.material.icons.filled.Task
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -67,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.faheem.pocketapp.ui.theme.MyApplicationTheme
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -94,9 +78,9 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class BottomNavTab(val icon: ImageVector, val label: String) {
-    TASKS(Icons.Filled.Task, "Tasks"),
-    EXPENSES(Icons.Filled.Money, "Expenses"),
-    EVENTS(Icons.Filled.Event, "Events")
+    TASK_TAB(Icons.Filled.Add, "Tasks"),
+    EXPENSE_TAB(Icons.Filled.Add, "Expenses"),
+    EVENT_TAB(Icons.Filled.Add, "Events")
 }
 
 @Composable
@@ -226,7 +210,7 @@ private fun HomeScreenWithBottomNav(
     context: android.content.Context,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableStateOf(BottomNavTab.TASKS) }
+    var selectedTab by remember { mutableStateOf(BottomNavTab.TASK_TAB) }
     var openDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -293,9 +277,9 @@ private fun HomeScreenWithBottomNav(
             Spacer(modifier = Modifier.height(16.dp))
 
             when (selectedTab) {
-                BottomNavTab.TASKS -> TasksScreen(uiState.tasks)
-                BottomNavTab.EXPENSES -> ExpensesScreen(uiState.expenses)
-                BottomNavTab.EVENTS -> EventsScreen(uiState.events)
+                BottomNavTab.TASK_TAB -> TasksScreen(uiState.tasks)
+                BottomNavTab.EXPENSE_TAB -> ExpensesScreen(uiState.expenses)
+                BottomNavTab.EVENT_TAB -> EventsScreen(uiState.events)
             }
         }
     }
@@ -331,7 +315,7 @@ private fun TaskCard(task: TaskItem) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(task.title, style = MaterialTheme.typography.titleSmall)
-                Icon(Icons.Filled.Task, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
             if (task.details.isNotBlank()) {
@@ -415,7 +399,7 @@ private fun EventCard(event: EventItem) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(event.title, style = MaterialTheme.typography.titleSmall)
-                Icon(Icons.Filled.Event, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(event.description, style = MaterialTheme.typography.bodySmall)
