@@ -1,11 +1,18 @@
 package com.faheem.pocketapp
 
+import android.Manifest
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,182 +20,198 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Money
+import androidx.compose.material.icons.filled.Task
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardOptions
 import com.faheem.pocketapp.ui.theme.MyApplicationTheme
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         setContent {
             MyApplicationTheme {
-                UtilityApp(viewModel = viewModel)
+                PocketApp(viewModel = viewModel, context = this)
             }
         }
     }
 }
 
+private enum class BottomNavTab(val icon: ImageVector, val label: String) {
+    TASKS(Icons.Filled.Task, "Tasks"),
+    EXPENSES(Icons.Filled.Money, "Expenses"),
+    EVENTS(Icons.Filled.Event, "Events")
+}
+
 @Composable
-fun UtilityApp(viewModel: MainViewModel, modifier: Modifier = Modifier) {
-    val uiState = viewModel.uiState
+fun PocketApp(viewModel: MainViewModel, context: android.content.Context, modifier: Modifier = Modifier) {
+    val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-        ) {
-            if (uiState.errorMessage != null) {
-                Text(
-                    text = uiState.errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-            }
-
-            if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.padding(vertical = 12.dp))
-            }
-
-            if (uiState.currentUserEmail == null) {
-                AuthScreen(
-                    onLogin = viewModel::login,
-                    onRegister = viewModel::register
-                )
-            } else {
-                HomeScreen(
-                    email = uiState.currentUserEmail,
-                    entries = uiState.entries,
-                    onAddEntry = viewModel::addEntry,
-                    onDeleteEntry = viewModel::deleteEntry,
-                    onSignOut = viewModel::signOut
-                )
-            }
-        }
+    if (uiState.currentUserEmail == null) {
+        AuthScreen(
+            viewModel = viewModel,
+            context = context,
+            modifier = modifier
+        )
+    } else {
+        HomeScreenWithBottomNav(
+            viewModel = viewModel,
+            uiState = uiState,
+            context = context,
+            modifier = modifier
+        )
     }
 }
 
 @Composable
 private fun AuthScreen(
-    onLogin: (String, String) -> Unit,
-    onRegister: (String, String) -> Unit
+    viewModel: MainViewModel,
+    context: android.content.Context,
+    modifier: Modifier = Modifier
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf(AuthCache.getCachedEmail(context) ?: "") }
+    var password by remember { mutableStateOf(AuthCache.getCachedPassword(context) ?: "") }
+    var rememberMe by remember { mutableStateOf(AuthCache.isRememberMeEnabled(context)) }
 
-    Text(text = "Welcome", style = MaterialTheme.typography.headlineSmall)
-    Spacer(modifier = Modifier.height(8.dp))
-    Text(text = "Sign in or create an account to sync your daily data.")
-    Spacer(modifier = Modifier.height(16.dp))
-
-    OutlinedTextField(
-        value = email,
-        onValueChange = { email = it },
-        label = { Text("Email") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth()
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(
-        value = password,
-        onValueChange = { password = it },
-        label = { Text("Password") },
-        singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth()
-    )
-    Spacer(modifier = Modifier.height(12.dp))
-
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { onLogin(email, password) }) {
-            Text("Login")
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("📱", style = MaterialTheme.typography.headlineLarge)
         }
-        Button(onClick = { onRegister(email, password) }) {
-            Text("Register")
-        }
-    }
-}
 
-@Composable
-private fun HomeScreen(
-    email: String,
-    entries: List<UtilityEntry>,
-    onAddEntry: (String, String) -> Unit,
-    onDeleteEntry: (String) -> Unit,
-    onSignOut: () -> Unit
-) {
-    var title by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Pocket App", style = MaterialTheme.typography.headlineMedium)
+        Text("Manage tasks, expenses & events", style = MaterialTheme.typography.bodyMedium)
 
-    Text(text = "Daily Utility", style = MaterialTheme.typography.headlineSmall)
-    Text(text = "Logged in as $email", style = MaterialTheme.typography.bodySmall)
-    Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
-    OutlinedTextField(
-        value = title,
-        onValueChange = { title = it },
-        label = { Text("Task title") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth()
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(
-        value = note,
-        onValueChange = { note = it },
-        label = { Text("Notes") },
-        modifier = Modifier.fillMaxWidth()
-    )
-    Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    leadingIcon = { Text("✉️") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                )
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = {
-            onAddEntry(title, note)
-            title = ""
-            note = ""
-        }) {
-            Text("Save")
-        }
-        Button(onClick = onSignOut) {
-            Text("Sign out")
-        }
-    }
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    leadingIcon = { Text("🔒") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                )
 
-    Spacer(modifier = Modifier.height(12.dp))
-    Text(text = "Backed up entries", style = MaterialTheme.typography.titleMedium)
-    Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = rememberMe,
+                        onCheckedChange = { rememberMe = it }
+                    )
+                    Text("Remember me", style = MaterialTheme.typography.bodySmall)
+                }
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(entries, key = { it.id }) { entry ->
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(text = entry.title, style = MaterialTheme.typography.titleSmall)
-                    if (entry.note.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = entry.note, style = MaterialTheme.typography.bodyMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            AuthCache.saveCredentials(context, email, password, rememberMe)
+                            viewModel.login(email, password)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Login")
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = { onDeleteEntry(entry.id) }) {
-                        Text("Delete")
+                    Button(
+                        onClick = {
+                            AuthCache.saveCredentials(context, email, password, rememberMe)
+                            viewModel.register(email, password)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Register")
                     }
                 }
             }
@@ -196,10 +219,223 @@ private fun HomeScreen(
     }
 }
 
+@Composable
+private fun HomeScreenWithBottomNav(
+    viewModel: MainViewModel,
+    uiState: PocketUiState,
+    context: android.content.Context,
+    modifier: Modifier = Modifier
+) {
+    var selectedTab by remember { mutableStateOf(BottomNavTab.TASKS) }
+    var openDialog by remember { mutableStateOf(false) }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        bottomBar = {
+            BottomAppBar(
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                BottomNavTab.entries.forEach { tab ->
+                    IconButton(
+                        onClick = { selectedTab = tab },
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                if (selectedTab == tab) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.primary
+                            )
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(tab.icon, tab.label, tint = MaterialTheme.colorScheme.onPrimary)
+                            Text(tab.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
+                }
+            }
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { openDialog = true }) {
+                Icon(Icons.Filled.Add, "Add")
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
+        ) {
+            if (uiState.errorMessage != null) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                    Text(
+                        uiState.errorMessage.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(uiState.currentUserEmail.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = {
+                    AuthCache.clearCredentials(context)
+                    viewModel.signOut()
+                }) {
+                    Text("Logout")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            when (selectedTab) {
+                BottomNavTab.TASKS -> TasksScreen(uiState.tasks)
+                BottomNavTab.EXPENSES -> ExpensesScreen(uiState.expenses)
+                BottomNavTab.EVENTS -> EventsScreen(uiState.events)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TasksScreen(tasks: List<TaskItem>) {
+    if (tasks.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No tasks yet. Add one!", style = MaterialTheme.typography.bodyLarge)
+        }
+        return
+    }
+
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(tasks) { task ->
+            TaskCard(task)
+        }
+    }
+}
+
+@Composable
+private fun TaskCard(task: TaskItem) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(task.title, style = MaterialTheme.typography.titleSmall)
+                Icon(Icons.Filled.Task, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            if (task.details.isNotBlank()) {
+                Text(task.details, style = MaterialTheme.typography.bodySmall)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            Text(formatDateTime(task.scheduledAtMillis), style = MaterialTheme.typography.labelSmall)
+            Text(if (task.alarmEnabled) "🔔 Reminder on" else "🔕 Reminder off", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun ExpensesScreen(expenses: List<ExpenseItem>) {
+    if (expenses.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No expenses yet. Add one!", style = MaterialTheme.typography.bodyLarge)
+        }
+        return
+    }
+
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(expenses) { expense ->
+            ExpenseCard(expense)
+        }
+    }
+}
+
+@Composable
+private fun ExpenseCard(expense: ExpenseItem) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(expense.title, style = MaterialTheme.typography.titleSmall)
+                    Text("${expense.category} • ${expense.paymentMethod}", style = MaterialTheme.typography.labelSmall)
+                }
+                Text("💰 ${String.format("%.2f", expense.amount)}", style = MaterialTheme.typography.titleSmall)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(formatDateTime(expense.scheduledAtMillis), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun EventsScreen(events: List<EventItem>) {
+    if (events.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No events yet. Add one!", style = MaterialTheme.typography.bodyLarge)
+        }
+        return
+    }
+
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(events) { event ->
+            EventCard(event)
+        }
+    }
+}
+
+@Composable
+private fun EventCard(event: EventItem) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(event.title, style = MaterialTheme.typography.titleSmall)
+                Icon(Icons.Filled.Event, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(event.description, style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(formatDateTime(event.eventDateMillis), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+private fun formatDateTime(timeMillis: Long): String {
+    if (timeMillis <= 0L) return "Not set"
+    val formatter = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+    return formatter.format(Date(timeMillis))
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun AuthScreenPreview() {
     MyApplicationTheme {
-        AuthScreen(onLogin = { _, _ -> }, onRegister = { _, _ -> })
+        AuthScreen(viewModel = MainViewModel(android.app.Application()), context = android.app.Application())
     }
 }
+
