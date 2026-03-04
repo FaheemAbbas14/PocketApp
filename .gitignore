@@ -1,15 +1,34 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+# Gradle files
+.gradle/
+build/
+*.apk
+*.ap_
+*.aab
+# Local configuration file
 local.properties
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+*.swp
+*.swo
+*~
+# OS
+.DS_Store
+Thumbs.db
+# Firebase
+google-services.json
+# Logs
+*.log
+# Generated files
+*.class
+*.jar
+*.zip
+# Built files
+gen/
+bin/
+# Editor
+.vscode/
+.sublime-workspace
+.sublime-project
