@@ -31,10 +31,11 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             if (permissionState != PackageManager.PERMISSION_GRANTED) return
         }
 
-        val body = if (module == AlarmScheduler.MODULE_TASK) {
-            "Task is due in 10 minutes"
-        } else {
-            "Expense reminder in 10 minutes"
+        val body = when (module) {
+            AlarmScheduler.MODULE_TASK -> "Task is due in 10 minutes"
+            AlarmScheduler.MODULE_EXPENSE -> "Expense reminder in 10 minutes"
+            AlarmScheduler.MODULE_EVENT -> "Event starts in 10 minutes"
+            else -> "Reminder"
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -60,7 +61,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             "Pocket App Reminders",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Task and expense reminders"
+            description = "Task, expense, and event reminders"
         }
         manager.createNotificationChannel(channel)
     }

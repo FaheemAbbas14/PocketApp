@@ -2,6 +2,8 @@ package com.faheem.pocketapp
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -307,6 +309,101 @@ class MainViewModel(
         }
     }
 
+    fun addEvent(title: String, description: String, eventDateMillis: Long, alarmEnabled: Boolean) {
+        val user = auth.currentUser ?: run {
+            setError("Please log in first.")
+            return
+        }
+        if (title.isBlank()) {
+            setError("Event title is required.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val document = eventsCollection(user.uid).document()
+                val now = System.currentTimeMillis()
+                val payload = mapOf(
+                    "title" to title.trim(),
+                    "description" to description.trim(),
+                    "eventDateMillis" to eventDateMillis,
+                    "alarmEnabled" to alarmEnabled,
+                    "updatedAt" to now
+                )
+                document.set(payload).await()
+                if (alarmEnabled) {
+                    AlarmScheduler.scheduleReminder(
+                        context = getApplication(),
+                        module = AlarmScheduler.MODULE_EVENT,
+                        itemId = document.id,
+                        title = title.trim(),
+                        scheduledAtMillis = eventDateMillis
+                    )
+                }
+                clearError()
+            } catch (e: Exception) {
+                setError(e.message ?: "Unable to save event.")
+            }
+        }
+    }
+
+    fun updateEvent(item: EventItem) {
+        val user = auth.currentUser ?: return
+        if (item.title.isBlank()) {
+            setError("Event title is required.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val payload = mapOf(
+                    "title" to item.title.trim(),
+                    "description" to item.description.trim(),
+                    "eventDateMillis" to item.eventDateMillis,
+                    "alarmEnabled" to item.alarmEnabled,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+                eventsCollection(user.uid).document(item.id).set(payload).await()
+
+                if (item.alarmEnabled) {
+                    AlarmScheduler.scheduleReminder(
+                        context = getApplication(),
+                        module = AlarmScheduler.MODULE_EVENT,
+                        itemId = item.id,
+                        title = item.title,
+                        scheduledAtMillis = item.eventDateMillis
+                    )
+                } else {
+                    AlarmScheduler.cancelReminder(
+                        context = getApplication(),
+                        module = AlarmScheduler.MODULE_EVENT,
+                        itemId = item.id
+                    )
+                }
+                clearError()
+            } catch (e: Exception) {
+                setError(e.message ?: "Unable to update event.")
+            }
+        }
+    }
+
+    fun deleteEvent(item: EventItem) {
+        val user = auth.currentUser ?: return
+        viewModelScope.launch {
+            try {
+                eventsCollection(user.uid).document(item.id).delete().await()
+                AlarmScheduler.cancelReminder(
+                    context = getApplication(),
+                    module = AlarmScheduler.MODULE_EVENT,
+                    itemId = item.id
+                )
+                clearError()
+            } catch (e: Exception) {
+                setError(e.message ?: "Unable to delete event.")
+            }
+        }
+    }
+
     private fun executeAuthAction(action: suspend () -> Unit) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
@@ -454,5 +551,15 @@ class MainViewModel(
         expensesListener?.remove()
         eventsListener?.remove()
         super.onCleared()
+    }
+}
+
+class MainViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return MainViewModel(application) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

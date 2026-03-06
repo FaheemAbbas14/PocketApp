@@ -8,6 +8,7 @@ import android.content.Intent
 object AlarmScheduler {
     const val MODULE_TASK = "TASK"
     const val MODULE_EXPENSE = "EXPENSE"
+    const val MODULE_EVENT = "EVENT"
 
     private const val TEN_MINUTES_MS = 10 * 60 * 1000L
     private const val PREFS = "pocket_alarm_prefs"

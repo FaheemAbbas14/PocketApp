@@ -54,6 +54,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.30.1")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
