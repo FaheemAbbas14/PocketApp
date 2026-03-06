@@ -43,6 +43,9 @@ import com.faheem.pocketapp.ui.events.EventsScreen
 import com.faheem.pocketapp.ui.expenses.AddExpenseDialog
 import com.faheem.pocketapp.ui.expenses.EditExpenseDialog
 import com.faheem.pocketapp.ui.expenses.ExpensesScreen
+import com.faheem.pocketapp.ui.payments.AddPaymentDialog
+import com.faheem.pocketapp.ui.payments.EditPaymentDialog
+import com.faheem.pocketapp.ui.payments.PaymentsScreen
 import com.faheem.pocketapp.ui.tasks.AddTaskDialog
 import com.faheem.pocketapp.ui.tasks.EditTaskDialog
 import com.faheem.pocketapp.ui.tasks.TasksScreen
@@ -50,7 +53,8 @@ import com.faheem.pocketapp.ui.tasks.TasksScreen
 private enum class BottomNavTab(val emoji: String, val label: String, val subtitle: String) {
     TASK_TAB("✓", "Tasks", "Plan and track your work"),
     EXPENSE_TAB("$", "Expenses", "Control daily spending"),
-    EVENT_TAB("@", "Events", "Stay ahead of upcoming plans")
+    EVENT_TAB("@", "Events", "Stay ahead of upcoming plans"),
+    PAYMENT_TAB("💰", "Payments", "Manage future payments")
 }
 
 @Composable
@@ -77,6 +81,7 @@ private fun HomeScreenWithBottomNav(
     var editingTask: TaskItem? by remember { mutableStateOf(null) }
     var editingExpense: ExpenseItem? by remember { mutableStateOf(null) }
     var editingEvent: EventItem? by remember { mutableStateOf(null) }
+    var editingPayment: PaymentItem? by remember { mutableStateOf(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -143,6 +148,7 @@ private fun HomeScreenWithBottomNav(
                 BottomNavTab.TASK_TAB -> TasksScreen(uiState.tasks, onEdit = { editingTask = it }, onDelete = { viewModel.deleteTask(it) })
                 BottomNavTab.EXPENSE_TAB -> ExpensesScreen(uiState.expenses, onEdit = { editingExpense = it }, onDelete = { viewModel.deleteExpense(it) })
                 BottomNavTab.EVENT_TAB -> EventsScreen(uiState.events, onEdit = { editingEvent = it }, onDelete = { viewModel.deleteEvent(it) })
+                BottomNavTab.PAYMENT_TAB -> PaymentsScreen(uiState.payments, onEdit = { editingPayment = it }, onDelete = { viewModel.deletePayment(it) })
             }
         }
     }
@@ -152,11 +158,13 @@ private fun HomeScreenWithBottomNav(
             BottomNavTab.TASK_TAB -> AddTaskDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
             BottomNavTab.EXPENSE_TAB -> AddExpenseDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
             BottomNavTab.EVENT_TAB -> AddEventDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
+            BottomNavTab.PAYMENT_TAB -> AddPaymentDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
         }
     }
 
     editingTask?.let { EditTaskDialog(task = it, viewModel = viewModel, onDismiss = { editingTask = null }) }
     editingExpense?.let { EditExpenseDialog(expense = it, viewModel = viewModel, onDismiss = { editingExpense = null }) }
     editingEvent?.let { EditEventDialog(event = it, viewModel = viewModel, onDismiss = { editingEvent = null }) }
+    editingPayment?.let { EditPaymentDialog(payment = it, viewModel = viewModel, onDismiss = { editingPayment = null }) }
 }
 

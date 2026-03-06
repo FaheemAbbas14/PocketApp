@@ -11,6 +11,8 @@ import com.faheem.pocketapp.data.repository.EventRepository
 import com.faheem.pocketapp.data.repository.EventRepositoryImpl
 import com.faheem.pocketapp.data.repository.ExpenseRepository
 import com.faheem.pocketapp.data.repository.ExpenseRepositoryImpl
+import com.faheem.pocketapp.data.repository.PaymentRepository
+import com.faheem.pocketapp.data.repository.PaymentRepositoryImpl
 import com.faheem.pocketapp.data.repository.TaskRepository
 import com.faheem.pocketapp.data.repository.TaskRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
@@ -49,12 +51,25 @@ data class EventItem(
     val updatedAt: Long
 )
 
+data class PaymentItem(
+    val id: String,
+    val title: String,
+    val amount: Double,
+    val paymentType: String, // "have_to_take" or "have_to_give"
+    val description: String,
+    val scheduledAtMillis: Long,
+    val alarmEnabled: Boolean,
+    val updatedAt: Long,
+    val isFuturePayment: Boolean = true
+)
+
 data class PocketUiState(
     val isLoading: Boolean = false,
     val currentUserEmail: String? = null,
     val tasks: List<TaskItem> = emptyList(),
     val expenses: List<ExpenseItem> = emptyList(),
     val events: List<EventItem> = emptyList(),
+    val payments: List<PaymentItem> = emptyList(),
     val errorMessage: String? = null
 )
 
@@ -63,7 +78,8 @@ class MainViewModel(
     private val authRepository: AuthRepository = AuthRepositoryImpl(),
     private val taskRepository: TaskRepository = TaskRepositoryImpl(),
     private val expenseRepository: ExpenseRepository = ExpenseRepositoryImpl(),
-    private val eventRepository: EventRepository = EventRepositoryImpl()
+    private val eventRepository: EventRepository = EventRepositoryImpl(),
+    private val paymentRepository: PaymentRepository = PaymentRepositoryImpl()
 ) : AndroidViewModel(application) {
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -331,6 +347,85 @@ class MainViewModel(
         }
     }
 
+    fun addPayment(title: String, amount: Double, paymentType: String, description: String, scheduledAtMillis: Long, alarmEnabled: Boolean) {
+        if (title.isBlank()) {
+            setError("Payment title is required.")
+            return
+        }
+        if (amount <= 0.0) {
+            setError("Payment amount must be greater than 0.")
+            return
+        }
+        // Only allow alarms for future payments
+        val now = System.currentTimeMillis()
+        if (scheduledAtMillis <= now && alarmEnabled) {
+            setError("Alarms can only be set for future payments.")
+            return
+        }
+
+        viewModelScope.launch {
+            paymentRepository.addPayment(title, amount, paymentType, description, scheduledAtMillis, alarmEnabled && scheduledAtMillis > now)
+                .onSuccess {
+                    if (alarmEnabled && scheduledAtMillis > now) {
+                        AlarmScheduler.scheduleReminder(
+                            context = getApplication(),
+                            module = AlarmScheduler.MODULE_PAYMENT,
+                            itemId = "",
+                            title = title.trim(),
+                            scheduledAtMillis = scheduledAtMillis
+                        )
+                    }
+                    clearError()
+                }
+                .onFailure { setError(it.message ?: "Unable to save payment.") }
+        }
+    }
+
+    fun updatePayment(item: PaymentItem) {
+        if (item.title.isBlank()) {
+            setError("Payment title is required.")
+            return
+        }
+
+        viewModelScope.launch {
+            paymentRepository.updatePayment(item)
+                .onSuccess {
+                    if (item.alarmEnabled && item.isFuturePayment) {
+                        AlarmScheduler.scheduleReminder(
+                            context = getApplication(),
+                            module = AlarmScheduler.MODULE_PAYMENT,
+                            itemId = item.id,
+                            title = item.title,
+                            scheduledAtMillis = item.scheduledAtMillis
+                        )
+                    } else {
+                        AlarmScheduler.cancelReminder(
+                            context = getApplication(),
+                            module = AlarmScheduler.MODULE_PAYMENT,
+                            itemId = item.id
+                        )
+                    }
+                    clearError()
+                }
+                .onFailure { setError(it.message ?: "Unable to update payment.") }
+        }
+    }
+
+    fun deletePayment(item: PaymentItem) {
+        viewModelScope.launch {
+            paymentRepository.deletePayment(item)
+                .onSuccess {
+                    AlarmScheduler.cancelReminder(
+                        context = getApplication(),
+                        module = AlarmScheduler.MODULE_PAYMENT,
+                        itemId = item.id
+                    )
+                    clearError()
+                }
+                .onFailure { setError(it.message ?: "Unable to delete payment.") }
+        }
+    }
+
     private fun observeUserData(userId: String) {
         viewModelScope.launch {
             taskRepository.observeTasks(userId).collect { tasks ->
@@ -345,6 +440,11 @@ class MainViewModel(
         viewModelScope.launch {
             eventRepository.observeEvents(userId).collect { events ->
                 _uiState.value = _uiState.value.copy(events = events)
+            }
+        }
+        viewModelScope.launch {
+            paymentRepository.observePayments(userId).collect { payments ->
+                _uiState.value = _uiState.value.copy(payments = payments)
             }
         }
     }
@@ -383,7 +483,8 @@ class MainViewModelFactory(private val application: Application) : ViewModelProv
                 authRepository = AuthRepositoryImpl(),
                 taskRepository = TaskRepositoryImpl(),
                 expenseRepository = ExpenseRepositoryImpl(),
-                eventRepository = EventRepositoryImpl()
+                eventRepository = EventRepositoryImpl(),
+                paymentRepository = PaymentRepositoryImpl()
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

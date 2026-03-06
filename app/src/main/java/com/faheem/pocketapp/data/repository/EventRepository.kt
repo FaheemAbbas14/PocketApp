@@ -3,6 +3,7 @@ package com.faheem.pocketapp.data.repository
 import com.faheem.pocketapp.EventItem
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.tasks.await
 
 interface EventRepository {
