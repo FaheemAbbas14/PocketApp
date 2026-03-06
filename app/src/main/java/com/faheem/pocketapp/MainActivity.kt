@@ -35,6 +35,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -131,6 +132,7 @@ private fun AuthScreen(
     context: android.content.Context,
     modifier: Modifier = Modifier
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     var email by remember { mutableStateOf(AuthCache.getCachedEmail(context) ?: "") }
     var password by remember { mutableStateOf(AuthCache.getCachedPassword(context) ?: "") }
     var rememberMe by remember { mutableStateOf(AuthCache.isRememberMeEnabled(context)) }
@@ -164,6 +166,14 @@ private fun AuthScreen(
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (uiState.errorMessage != null) {
+                    Text(
+                        text = uiState.errorMessage.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
@@ -171,7 +181,8 @@ private fun AuthScreen(
                     leadingIcon = { Text("✉️") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    enabled = !uiState.isLoading
                 )
 
                 OutlinedTextField(
@@ -182,7 +193,8 @@ private fun AuthScreen(
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    enabled = !uiState.isLoading
                 )
 
                 Row(
@@ -192,9 +204,19 @@ private fun AuthScreen(
                 ) {
                     Checkbox(
                         checked = rememberMe,
-                        onCheckedChange = { rememberMe = it }
+                        onCheckedChange = { rememberMe = it },
+                        enabled = !uiState.isLoading
                     )
                     Text("Remember me", style = MaterialTheme.typography.bodySmall)
+                }
+
+                if (uiState.isLoading) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
                 }
 
                 Row(
@@ -204,18 +226,20 @@ private fun AuthScreen(
                     Button(
                         onClick = {
                             AuthCache.saveCredentials(context, email, password, rememberMe)
-                            viewModel.login(email, password)
+                            viewModel.login(email.trim(), password)
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.isLoading
                     ) {
                         Text("Login")
                     }
                     Button(
                         onClick = {
                             AuthCache.saveCredentials(context, email, password, rememberMe)
-                            viewModel.register(email, password)
+                            viewModel.register(email.trim(), password)
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.isLoading
                     ) {
                         Text("Register")
                     }
@@ -1018,16 +1042,70 @@ private fun AddTaskDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditTaskDialog(
     task: TaskItem,
     viewModel: MainViewModel,
     onDismiss: () -> Unit
 ) {
+    val initialCal = remember(task.scheduledAtMillis) {
+        Calendar.getInstance().apply { timeInMillis = task.scheduledAtMillis }
+    }
     var title by remember { mutableStateOf(task.title) }
     var details by remember { mutableStateOf(task.details) }
     var selectedDate by remember { mutableStateOf(task.scheduledAtMillis) }
+    var selectedHour by remember { mutableStateOf(initialCal.get(Calendar.HOUR_OF_DAY)) }
+    var selectedMinute by remember { mutableStateOf(initialCal.get(Calendar.MINUTE)) }
     var alarmEnabled by remember { mutableStateOf(task.alarmEnabled) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { selectedDate = it }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = selectedHour,
+            initialMinute = selectedMinute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Select Time") },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedHour = timePickerState.hour
+                    selectedMinute = timePickerState.minute
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     AlertDialog(
         title = { Text("Edit Task", style = MaterialTheme.typography.titleLarge) },
@@ -1059,11 +1137,16 @@ private fun EditTaskDialog(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = formatDateTime(selectedDate),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Button(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("📅 ${formatDate(selectedDate)}") }
+                    Button(
+                        onClick = { showTimePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("🕐 ${String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)}") }
                 }
 
                 Row(
@@ -1078,21 +1161,26 @@ private fun EditTaskDialog(
         },
         confirmButton = {
             Button(onClick = {
-                viewModel.updateTask(task.copy(title = title, details = details, scheduledAtMillis = selectedDate, alarmEnabled = alarmEnabled))
+                val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
+                viewModel.updateTask(
+                    task.copy(
+                        title = title,
+                        details = details,
+                        scheduledAtMillis = scheduledMillis,
+                        alarmEnabled = alarmEnabled
+                    )
+                )
                 onDismiss()
-            }) {
-                Text("Update")
-            }
+            }) { Text("Update") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         },
         onDismissRequest = onDismiss
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddExpenseDialog(
     viewModel: MainViewModel,
@@ -1104,7 +1192,11 @@ private fun AddExpenseDialog(
     var paymentMethod by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(System.currentTimeMillis()) }
+    var selectedHour by remember { mutableStateOf(10) }
+    var selectedMinute by remember { mutableStateOf(0) }
     var alarmEnabled by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     val categoryIcons = mapOf(
         "🍔" to "Food",
@@ -1121,6 +1213,52 @@ private fun AddExpenseDialog(
         "📱" to "UPI",
         "🌐" to "Online"
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { selectedDate = it }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = selectedHour,
+            initialMinute = selectedMinute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Select Time") },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedHour = timePickerState.hour
+                    selectedMinute = timePickerState.minute
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     AlertDialog(
         title = {
@@ -1155,181 +1293,31 @@ private fun AddExpenseDialog(
                     suffix = { Text("USD") }
                 )
 
-                // Category Section
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Schedule",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Button(
+                        onClick = { showDatePicker = true },
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "📂 Expense Type",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (category.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Text(
-                                    text = category,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
-                    Row(
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("📅 ${formatDate(selectedDate)}") }
+                    Button(
+                        onClick = { showTimePicker = true },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        categoryIcons.forEach { (icon, name) ->
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { category = name },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (category == name)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceContainerLow
-                                ),
-                                elevation = CardDefaults.cardElevation(
-                                    defaultElevation = if (category == name) 4.dp else 1.dp
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(text = icon, style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        text = name,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (category == name)
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("🕐 ${String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)}") }
                 }
 
-                // Payment Method Section
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "💳 Payment Method",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (paymentMethod.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Text(
-                                    text = paymentMethod,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        paymentIcons.forEach { (icon, name) ->
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { paymentMethod = name },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (paymentMethod == name)
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceContainerLow
-                                ),
-                                elevation = CardDefaults.cardElevation(
-                                    defaultElevation = if (paymentMethod == name) 4.dp else 1.dp
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(text = icon, style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        text = name,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (paymentMethod == name)
-                                            MaterialTheme.colorScheme.onSecondaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Notes field
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes (optional)") },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    leadingIcon = { Text("📋") }
-                )
-
-                // Reminder section
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { alarmEnabled = !alarmEnabled }
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "🔔 Set reminder",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Checkbox(
-                            checked = alarmEnabled,
-                            onCheckedChange = { alarmEnabled = it }
-                        )
-                    }
+                    Text("Set reminder", style = MaterialTheme.typography.bodyMedium)
+                    Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
             }
         },
@@ -1338,7 +1326,8 @@ private fun AddExpenseDialog(
                 onClick = {
                     val expenseAmount = amount.toDoubleOrNull() ?: 0.0
                     if (title.isNotBlank() && expenseAmount > 0 && category.isNotBlank() && paymentMethod.isNotBlank()) {
-                        viewModel.addExpense(title, expenseAmount, category, paymentMethod, notes, selectedDate, alarmEnabled)
+                        val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
+                        viewModel.addExpense(title, expenseAmount, category, paymentMethod, notes, scheduledMillis, alarmEnabled)
                         onDismiss()
                     }
                 },
@@ -1356,18 +1345,27 @@ private fun AddExpenseDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditExpenseDialog(
     expense: ExpenseItem,
     viewModel: MainViewModel,
     onDismiss: () -> Unit
 ) {
+    val initialCal = remember(expense.scheduledAtMillis) {
+        Calendar.getInstance().apply { timeInMillis = expense.scheduledAtMillis }
+    }
     var title by remember { mutableStateOf(expense.title) }
     var amount by remember { mutableStateOf(expense.amount.toString()) }
     var category by remember { mutableStateOf(expense.category) }
     var paymentMethod by remember { mutableStateOf(expense.paymentMethod) }
     var notes by remember { mutableStateOf(expense.notes) }
+    var selectedDate by remember { mutableStateOf(expense.scheduledAtMillis) }
+    var selectedHour by remember { mutableStateOf(initialCal.get(Calendar.HOUR_OF_DAY)) }
+    var selectedMinute by remember { mutableStateOf(initialCal.get(Calendar.MINUTE)) }
     var alarmEnabled by remember { mutableStateOf(expense.alarmEnabled) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     val categoryIcons = mapOf(
         "🍔" to "Food",
@@ -1385,6 +1383,52 @@ private fun EditExpenseDialog(
         "🌐" to "Online"
     )
 
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { selectedDate = it }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = selectedHour,
+            initialMinute = selectedMinute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Select Time") },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedHour = timePickerState.hour
+                    selectedMinute = timePickerState.minute
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     AlertDialog(
         title = {
             Text("✏️ Edit Expense", style = MaterialTheme.typography.titleLarge)
@@ -1396,7 +1440,6 @@ private fun EditExpenseDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Title field
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -1406,7 +1449,6 @@ private fun EditExpenseDialog(
                     leadingIcon = { Text("📝") }
                 )
 
-                // Amount field
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
@@ -1418,195 +1460,50 @@ private fun EditExpenseDialog(
                     suffix = { Text("USD") }
                 )
 
-                // Category Section
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Schedule",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Button(
+                        onClick = { showDatePicker = true },
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "📂 Expense Type",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (category.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Text(
-                                    text = category,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
-                    Row(
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("📅 ${formatDate(selectedDate)}") }
+                    Button(
+                        onClick = { showTimePicker = true },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        categoryIcons.forEach { (icon, name) ->
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { category = name },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (category == name)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceContainerLow
-                                ),
-                                elevation = CardDefaults.cardElevation(
-                                    defaultElevation = if (category == name) 4.dp else 1.dp
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(text = icon, style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        text = name,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (category == name)
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("🕐 ${String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)}") }
                 }
 
-                // Payment Method Section
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "💳 Payment Method",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (paymentMethod.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Text(
-                                    text = paymentMethod,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        paymentIcons.forEach { (icon, name) ->
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { paymentMethod = name },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (paymentMethod == name)
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceContainerLow
-                                ),
-                                elevation = CardDefaults.cardElevation(
-                                    defaultElevation = if (paymentMethod == name) 4.dp else 1.dp
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(text = icon, style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        text = name,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (paymentMethod == name)
-                                            MaterialTheme.colorScheme.onSecondaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Notes field
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes (optional)") },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    leadingIcon = { Text("📋") }
-                )
-
-                // Reminder section
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { alarmEnabled = !alarmEnabled }
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "🔔 Set reminder",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Checkbox(
-                            checked = alarmEnabled,
-                            onCheckedChange = { alarmEnabled = it }
-                        )
-                    }
+                    Text("Set reminder", style = MaterialTheme.typography.bodyMedium)
+                    Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val expenseAmount = amount.toDoubleOrNull() ?: 0.0
-                    if (title.isNotBlank() && expenseAmount > 0 && category.isNotBlank() && paymentMethod.isNotBlank()) {
-                        viewModel.updateExpense(expense.copy(title = title, amount = expenseAmount, category = category, paymentMethod = paymentMethod, notes = notes, alarmEnabled = alarmEnabled))
-                        onDismiss()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Button(onClick = {
+                val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
+                viewModel.updateExpense(
+                    expense.copy(
+                        title = title,
+                        amount = amount.toDoubleOrNull() ?: 0.0,
+                        category = category,
+                        paymentMethod = paymentMethod,
+                        notes = notes,
+                        scheduledAtMillis = scheduledMillis,
+                        alarmEnabled = alarmEnabled
+                    )
+                )
+                onDismiss()
+            }) {
                 Text("✅ Update Expense")
             }
         },
@@ -1619,6 +1516,7 @@ private fun EditExpenseDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddEventDialog(
     viewModel: MainViewModel,
@@ -1627,7 +1525,57 @@ private fun AddEventDialog(
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(System.currentTimeMillis() + 86400000) }
+    var selectedHour by remember { mutableStateOf(10) }
+    var selectedMinute by remember { mutableStateOf(0) }
     var alarmEnabled by remember { mutableStateOf(true) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { selectedDate = it }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = selectedHour,
+            initialMinute = selectedMinute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Select Time") },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedHour = timePickerState.hour
+                    selectedMinute = timePickerState.minute
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     AlertDialog(
         title = { Text("Add Event", style = MaterialTheme.typography.titleLarge) },
@@ -1659,11 +1607,16 @@ private fun AddEventDialog(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = formatDateTime(selectedDate),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Button(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("📅 ${formatDate(selectedDate)}") }
+                    Button(
+                        onClick = { showTimePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("🕐 ${String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)}") }
                 }
 
                 Row(
@@ -1679,7 +1632,8 @@ private fun AddEventDialog(
         confirmButton = {
             Button(onClick = {
                 if (title.isNotBlank()) {
-                    viewModel.addEvent(title, description, selectedDate, alarmEnabled)
+                    val eventDateMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
+                    viewModel.addEvent(title, description, eventDateMillis, alarmEnabled)
                     onDismiss()
                 }
             }) {
@@ -1695,16 +1649,70 @@ private fun AddEventDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditEventDialog(
     event: EventItem,
     viewModel: MainViewModel,
     onDismiss: () -> Unit
 ) {
+    val initialCal = remember(event.eventDateMillis) {
+        Calendar.getInstance().apply { timeInMillis = event.eventDateMillis }
+    }
     var title by remember { mutableStateOf(event.title) }
     var description by remember { mutableStateOf(event.description) }
     var selectedDate by remember { mutableStateOf(event.eventDateMillis) }
+    var selectedHour by remember { mutableStateOf(initialCal.get(Calendar.HOUR_OF_DAY)) }
+    var selectedMinute by remember { mutableStateOf(initialCal.get(Calendar.MINUTE)) }
     var alarmEnabled by remember { mutableStateOf(event.alarmEnabled) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { selectedDate = it }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = selectedHour,
+            initialMinute = selectedMinute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Select Time") },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedHour = timePickerState.hour
+                    selectedMinute = timePickerState.minute
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     AlertDialog(
         title = { Text("Edit Event", style = MaterialTheme.typography.titleLarge) },
@@ -1736,11 +1744,16 @@ private fun EditEventDialog(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = formatDateTime(selectedDate),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Button(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("📅 ${formatDate(selectedDate)}") }
+                    Button(
+                        onClick = { showTimePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) { Text("🕐 ${String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)}") }
                 }
 
                 Row(
@@ -1755,7 +1768,15 @@ private fun EditEventDialog(
         },
         confirmButton = {
             Button(onClick = {
-                viewModel.updateEvent(event.copy(title = title, description = description, eventDateMillis = selectedDate, alarmEnabled = alarmEnabled))
+                val eventDateMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
+                viewModel.updateEvent(
+                    event.copy(
+                        title = title,
+                        description = description,
+                        eventDateMillis = eventDateMillis,
+                        alarmEnabled = alarmEnabled
+                    )
+                )
                 onDismiss()
             }) {
                 Text("Update")
@@ -1790,3 +1811,12 @@ private fun AuthScreenPreview() {
     }
 }
 
+private fun mergeDateAndTimeMillis(dateMillis: Long, hour: Int, minute: Int): Long {
+    val cal = Calendar.getInstance()
+    cal.timeInMillis = dateMillis
+    cal.set(Calendar.HOUR_OF_DAY, hour)
+    cal.set(Calendar.MINUTE, minute)
+    cal.set(Calendar.SECOND, 0)
+    cal.set(Calendar.MILLISECOND, 0)
+    return cal.timeInMillis
+}
