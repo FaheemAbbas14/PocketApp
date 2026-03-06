@@ -66,6 +66,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Surface
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.faheem.pocketapp.ui.theme.MyApplicationTheme
@@ -1105,53 +1106,79 @@ private fun AddExpenseDialog(
     var selectedDate by remember { mutableStateOf(System.currentTimeMillis()) }
     var alarmEnabled by remember { mutableStateOf(false) }
 
-    val categories = listOf("Food", "Transport", "Entertainment", "Shopping", "Bills", "Other")
-    val paymentMethods = listOf("Cash", "Card", "UPI", "Online")
+    val categoryIcons = mapOf(
+        "🍔" to "Food",
+        "🚗" to "Transport",
+        "🎬" to "Entertainment",
+        "🛍️" to "Shopping",
+        "💳" to "Bills",
+        "📌" to "Other"
+    )
+
+    val paymentIcons = mapOf(
+        "💵" to "Cash",
+        "💳" to "Card",
+        "📱" to "UPI",
+        "🌐" to "Online"
+    )
 
     AlertDialog(
-        title = { Text("Add Expense", style = MaterialTheme.typography.titleLarge) },
+        title = {
+            Text("💰 Add Expense", style = MaterialTheme.typography.titleLarge)
+        },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                // Title field
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Expense Title") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    leadingIcon = { Text("📝") }
                 )
+
+                // Amount field
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = { Text("Amount ($)") },
+                    label = { Text("Amount") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    leadingIcon = { Text("💵") },
+                    suffix = { Text("USD") }
                 )
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Category",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                // Category Section
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        categories.take(3).forEach { cat ->
-                            Button(
-                                onClick = { category = cat },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (category == cat) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                                )
+                        Text(
+                            text = "📂 Expense Type",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (category.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
                             ) {
-                                Text(cat, style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    text = category,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
                             }
                         }
                     }
@@ -1159,75 +1186,169 @@ private fun AddExpenseDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        categories.drop(3).forEach { cat ->
-                            Button(
-                                onClick = { category = cat },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (category == cat) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                        categoryIcons.forEach { (icon, name) ->
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { category = name },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (category == name)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                ),
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = if (category == name) 4.dp else 1.dp
                                 )
                             ) {
-                                Text(cat, style = MaterialTheme.typography.labelSmall)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(text = icon, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        text = name,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (category == name)
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Payment Method",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                // Payment Method Section
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "💳 Payment Method",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (paymentMethod.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = paymentMethod,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        paymentMethods.forEach { method ->
-                            Button(
-                                onClick = { paymentMethod = method },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (paymentMethod == method) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant
+                        paymentIcons.forEach { (icon, name) ->
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { paymentMethod = name },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (paymentMethod == name)
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                ),
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = if (paymentMethod == name) 4.dp else 1.dp
                                 )
                             ) {
-                                Text(method, style = MaterialTheme.typography.labelSmall)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(text = icon, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        text = name,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (paymentMethod == name)
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
+                // Notes field
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Notes (optional)") },
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2
+                    minLines = 2,
+                    leadingIcon = { Text("📋") }
                 )
 
-                Row(
+                // Reminder section
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Set reminder", style = MaterialTheme.typography.bodyMedium)
-                    Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { alarmEnabled = !alarmEnabled }
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🔔 Set reminder",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Checkbox(
+                            checked = alarmEnabled,
+                            onCheckedChange = { alarmEnabled = it }
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val expenseAmount = amount.toDoubleOrNull() ?: 0.0
-                if (title.isNotBlank() && expenseAmount > 0 && category.isNotBlank() && paymentMethod.isNotBlank()) {
-                    viewModel.addExpense(title, expenseAmount, category, paymentMethod, notes, selectedDate, alarmEnabled)
-                    onDismiss()
-                }
-            }) {
-                Text("Add Expense")
+            Button(
+                onClick = {
+                    val expenseAmount = amount.toDoubleOrNull() ?: 0.0
+                    if (title.isNotBlank() && expenseAmount > 0 && category.isNotBlank() && paymentMethod.isNotBlank()) {
+                        viewModel.addExpense(title, expenseAmount, category, paymentMethod, notes, selectedDate, alarmEnabled)
+                        onDismiss()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("💾 Add Expense")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
                 Text("Cancel")
             }
         },
@@ -1248,53 +1369,79 @@ private fun EditExpenseDialog(
     var notes by remember { mutableStateOf(expense.notes) }
     var alarmEnabled by remember { mutableStateOf(expense.alarmEnabled) }
 
-    val categories = listOf("Food", "Transport", "Entertainment", "Shopping", "Bills", "Other")
-    val paymentMethods = listOf("Cash", "Card", "UPI", "Online")
+    val categoryIcons = mapOf(
+        "🍔" to "Food",
+        "🚗" to "Transport",
+        "🎬" to "Entertainment",
+        "🛍️" to "Shopping",
+        "💳" to "Bills",
+        "📌" to "Other"
+    )
+
+    val paymentIcons = mapOf(
+        "💵" to "Cash",
+        "💳" to "Card",
+        "📱" to "UPI",
+        "🌐" to "Online"
+    )
 
     AlertDialog(
-        title = { Text("Edit Expense", style = MaterialTheme.typography.titleLarge) },
+        title = {
+            Text("✏️ Edit Expense", style = MaterialTheme.typography.titleLarge)
+        },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                // Title field
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Expense Title") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    leadingIcon = { Text("📝") }
                 )
+
+                // Amount field
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = { Text("Amount ($)") },
+                    label = { Text("Amount") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    leadingIcon = { Text("💵") },
+                    suffix = { Text("USD") }
                 )
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Category",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                // Category Section
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        categories.take(3).forEach { cat ->
-                            Button(
-                                onClick = { category = cat },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (category == cat) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                                )
+                        Text(
+                            text = "📂 Expense Type",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (category.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
                             ) {
-                                Text(cat, style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    text = category,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
                             }
                         }
                     }
@@ -1302,75 +1449,169 @@ private fun EditExpenseDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        categories.drop(3).forEach { cat ->
-                            Button(
-                                onClick = { category = cat },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (category == cat) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                        categoryIcons.forEach { (icon, name) ->
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { category = name },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (category == name)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                ),
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = if (category == name) 4.dp else 1.dp
                                 )
                             ) {
-                                Text(cat, style = MaterialTheme.typography.labelSmall)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(text = icon, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        text = name,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (category == name)
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Payment Method",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                // Payment Method Section
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "💳 Payment Method",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (paymentMethod.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = paymentMethod,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        paymentMethods.forEach { method ->
-                            Button(
-                                onClick = { paymentMethod = method },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (paymentMethod == method) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant
+                        paymentIcons.forEach { (icon, name) ->
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { paymentMethod = name },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (paymentMethod == name)
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                ),
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = if (paymentMethod == name) 4.dp else 1.dp
                                 )
                             ) {
-                                Text(method, style = MaterialTheme.typography.labelSmall)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(text = icon, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        text = name,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (paymentMethod == name)
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
+                // Notes field
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Notes (optional)") },
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2
+                    minLines = 2,
+                    leadingIcon = { Text("📋") }
                 )
 
-                Row(
+                // Reminder section
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Set reminder", style = MaterialTheme.typography.bodyMedium)
-                    Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { alarmEnabled = !alarmEnabled }
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🔔 Set reminder",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Checkbox(
+                            checked = alarmEnabled,
+                            onCheckedChange = { alarmEnabled = it }
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val expenseAmount = amount.toDoubleOrNull() ?: 0.0
-                if (title.isNotBlank() && expenseAmount > 0 && category.isNotBlank() && paymentMethod.isNotBlank()) {
-                    viewModel.updateExpense(expense.copy(title = title, amount = expenseAmount, category = category, paymentMethod = paymentMethod, notes = notes, alarmEnabled = alarmEnabled))
-                    onDismiss()
-                }
-            }) {
-                Text("Update")
+            Button(
+                onClick = {
+                    val expenseAmount = amount.toDoubleOrNull() ?: 0.0
+                    if (title.isNotBlank() && expenseAmount > 0 && category.isNotBlank() && paymentMethod.isNotBlank()) {
+                        viewModel.updateExpense(expense.copy(title = title, amount = expenseAmount, category = category, paymentMethod = paymentMethod, notes = notes, alarmEnabled = alarmEnabled))
+                        onDismiss()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("✅ Update Expense")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
                 Text("Cancel")
             }
         },
