@@ -49,11 +49,14 @@ import com.faheem.pocketapp.TaskItem
 import com.faheem.pocketapp.ui.common.formatDate
 import com.faheem.pocketapp.ui.common.formatDateTime
 import com.faheem.pocketapp.ui.common.mergeDateAndTimeMillis
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import java.util.Calendar
 import java.util.Locale
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun TasksScreen(
     tasks: List<TaskItem>,
@@ -61,27 +64,36 @@ fun TasksScreen(
     onDelete: (TaskItem) -> Unit = {}
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-
-    SwipeRefresh(
-        state = rememberSwipeRefreshState(isRefreshing),
+    val refreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             isRefreshing = false
-        },
-        modifier = Modifier.fillMaxSize()
+        }
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(refreshState)
     ) {
         if (tasks.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No tasks yet")
             }
-            return@SwipeRefresh
-        }
-
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-            items(tasks) { task ->
-                TaskCard(task = task, onEdit = onEdit, onDelete = onDelete)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                items(tasks) { task ->
+                    TaskCard(task = task, onEdit = onEdit, onDelete = onDelete)
+                }
             }
         }
+
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = refreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 
@@ -283,4 +295,3 @@ fun EditTaskDialog(task: TaskItem, viewModel: MainViewModel, onDismiss: () -> Un
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
-

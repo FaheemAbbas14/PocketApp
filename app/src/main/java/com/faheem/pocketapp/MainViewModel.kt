@@ -34,6 +34,7 @@ data class ExpenseItem(
     val id: String,
     val title: String,
     val amount: Double,
+    val currency: String = "USD",
     val category: String,
     val paymentMethod: String,
     val notes: String,
@@ -55,6 +56,7 @@ data class PaymentItem(
     val id: String,
     val title: String,
     val amount: Double,
+    val currency: String = "USD",
     val paymentType: String, // "have_to_take" or "have_to_give"
     val description: String,
     val scheduledAtMillis: Long,
@@ -200,6 +202,7 @@ class MainViewModel(
     fun addExpense(
         title: String,
         amount: Double,
+        currency: String,
         category: String,
         paymentMethod: String,
         notes: String,
@@ -216,7 +219,7 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
-            expenseRepository.addExpense(title, amount, category, paymentMethod, notes, scheduledAtMillis, alarmEnabled)
+            expenseRepository.addExpense(title, amount, currency, category, paymentMethod, notes, scheduledAtMillis, alarmEnabled)
                 .onSuccess {
                     if (alarmEnabled) {
                         AlarmScheduler.scheduleReminder(
@@ -347,7 +350,7 @@ class MainViewModel(
         }
     }
 
-    fun addPayment(title: String, amount: Double, paymentType: String, description: String, scheduledAtMillis: Long, alarmEnabled: Boolean) {
+    fun addPayment(title: String, amount: Double, currency: String, paymentType: String, description: String, scheduledAtMillis: Long, alarmEnabled: Boolean) {
         if (title.isBlank()) {
             setError("Payment title is required.")
             return
@@ -364,7 +367,15 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
-            paymentRepository.addPayment(title, amount, paymentType, description, scheduledAtMillis, alarmEnabled && scheduledAtMillis > now)
+            paymentRepository.addPayment(
+                title = title,
+                amount = amount,
+                currency = currency,
+                paymentType = paymentType,
+                description = description,
+                scheduledAtMillis = scheduledAtMillis,
+                alarmEnabled = alarmEnabled && scheduledAtMillis > now
+            )
                 .onSuccess {
                     if (alarmEnabled && scheduledAtMillis > now) {
                         AlarmScheduler.scheduleReminder(
@@ -387,10 +398,13 @@ class MainViewModel(
             return
         }
 
+        val now = System.currentTimeMillis()
+        val isFuturePayment = item.scheduledAtMillis > now
+
         viewModelScope.launch {
-            paymentRepository.updatePayment(item)
+            paymentRepository.updatePayment(item.copy(alarmEnabled = item.alarmEnabled && isFuturePayment))
                 .onSuccess {
-                    if (item.alarmEnabled && item.isFuturePayment) {
+                    if (item.alarmEnabled && isFuturePayment) {
                         AlarmScheduler.scheduleReminder(
                             context = getApplication(),
                             module = AlarmScheduler.MODULE_PAYMENT,
@@ -490,4 +504,3 @@ class MainViewModelFactory(private val application: Application) : ViewModelProv
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
-

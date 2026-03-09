@@ -12,6 +12,7 @@ interface PaymentRepository {
     suspend fun addPayment(
         title: String,
         amount: Double,
+        currency: String,
         paymentType: String, // "have_to_take" or "have_to_give"
         description: String,
         scheduledAtMillis: Long,
@@ -31,6 +32,7 @@ class PaymentRepositoryImpl(
     override suspend fun addPayment(
         title: String,
         amount: Double,
+        currency: String,
         paymentType: String,
         description: String,
         scheduledAtMillis: Long,
@@ -43,6 +45,7 @@ class PaymentRepositoryImpl(
             val payload = mapOf(
                 "title" to title.trim(),
                 "amount" to amount,
+                "currency" to currency,
                 "paymentType" to paymentType,
                 "description" to description.trim(),
                 "scheduledAtMillis" to scheduledAtMillis,
@@ -63,6 +66,7 @@ class PaymentRepositoryImpl(
             val payload = mapOf(
                 "title" to item.title.trim(),
                 "amount" to item.amount,
+                "currency" to item.currency,
                 "paymentType" to item.paymentType,
                 "description" to item.description.trim(),
                 "scheduledAtMillis" to item.scheduledAtMillis,
@@ -88,27 +92,28 @@ class PaymentRepositoryImpl(
 
     override fun observePayments(userId: String): Flow<List<PaymentItem>> {
         return callbackFlow {
-            val now = System.currentTimeMillis()
             val listener = paymentsCollection(userId).addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
                     return@addSnapshotListener
                 }
+                val currentTime = System.currentTimeMillis()
                 val payments = snapshot?.documents
                     ?.map { doc ->
+                        val scheduledAtMillis = doc.getLong("scheduledAtMillis") ?: 0L
                         PaymentItem(
                             id = doc.id,
                             title = doc.getString("title").orEmpty(),
                             amount = doc.getDouble("amount") ?: 0.0,
+                            currency = doc.getString("currency") ?: "USD",
                             paymentType = doc.getString("paymentType").orEmpty(),
                             description = doc.getString("description").orEmpty(),
-                            scheduledAtMillis = doc.getLong("scheduledAtMillis") ?: 0L,
+                            scheduledAtMillis = scheduledAtMillis,
                             alarmEnabled = doc.getBoolean("alarmEnabled") ?: false,
                             updatedAt = doc.getLong("updatedAt") ?: 0L,
-                            isFuturePayment = (doc.getLong("scheduledAtMillis") ?: 0L) > now
+                            isFuturePayment = scheduledAtMillis > currentTime
                         )
                     }
-                    ?.filter { it.scheduledAtMillis > now } // Only show future payments
                     ?.sortedByDescending { it.scheduledAtMillis }
                     ?: emptyList()
                 trySend(payments)
@@ -120,4 +125,3 @@ class PaymentRepositoryImpl(
     private fun paymentsCollection(uid: String) =
         firestore.collection("users").document(uid).collection("payments")
 }
-

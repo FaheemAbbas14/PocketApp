@@ -34,6 +34,7 @@ import com.faheem.pocketapp.AuthCache
 import com.faheem.pocketapp.EventItem
 import com.faheem.pocketapp.ExpenseItem
 import com.faheem.pocketapp.MainViewModel
+import com.faheem.pocketapp.PaymentItem
 import com.faheem.pocketapp.PocketUiState
 import com.faheem.pocketapp.TaskItem
 import com.faheem.pocketapp.ui.auth.AuthScreen

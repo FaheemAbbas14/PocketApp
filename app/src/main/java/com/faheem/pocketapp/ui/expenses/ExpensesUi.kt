@@ -27,6 +27,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,14 +50,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.faheem.pocketapp.ExpenseItem
 import com.faheem.pocketapp.MainViewModel
+import com.faheem.pocketapp.ui.common.formatAmountWithCurrency
 import com.faheem.pocketapp.ui.common.formatDate
 import com.faheem.pocketapp.ui.common.formatDateTime
 import com.faheem.pocketapp.ui.common.mergeDateAndTimeMillis
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import com.faheem.pocketapp.ui.common.supportedCurrencies
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import java.util.Calendar
 import java.util.Locale
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun ExpensesScreen(
     expenses: List<ExpenseItem>,
@@ -63,27 +70,36 @@ fun ExpensesScreen(
     onDelete: (ExpenseItem) -> Unit = {}
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-
-    SwipeRefresh(
-        state = rememberSwipeRefreshState(isRefreshing),
+    val refreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             isRefreshing = false
-        },
-        modifier = Modifier.fillMaxSize()
+        }
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(refreshState)
     ) {
         if (expenses.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No expenses yet")
             }
-            return@SwipeRefresh
-        }
-
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-            items(expenses) { expense ->
-                ExpenseCard(expense = expense, onEdit = onEdit, onDelete = onDelete)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                items(expenses) { expense ->
+                    ExpenseCard(expense = expense, onEdit = onEdit, onDelete = onDelete)
+                }
             }
         }
+
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = refreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 
@@ -108,7 +124,10 @@ fun ExpenseCard(
                     Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                 }
             }
-            Text("$${String.format(Locale.US, "%.2f", expense.amount)}", style = MaterialTheme.typography.titleSmall)
+            Text(
+                formatAmountWithCurrency(expense.amount, expense.currency),
+                style = MaterialTheme.typography.titleSmall
+            )
             Text("${expense.category} • ${expense.paymentMethod}", style = MaterialTheme.typography.labelSmall)
             if (expense.notes.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -140,6 +159,7 @@ fun ExpenseCard(
 fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
+    var currency by remember { mutableStateOf("USD") }
     var category by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
@@ -200,6 +220,10 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                 OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = paymentMethod, onValueChange = { paymentMethod = it }, label = { Text("Payment Method") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                CurrencySelector(
+                    selectedCurrency = currency,
+                    onCurrencySelected = { currency = it }
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     categories.forEach { cat ->
                         TextButton(onClick = { category = cat }) { Text(cat) }
@@ -227,7 +251,7 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                 val expenseAmount = amount.toDoubleOrNull() ?: 0.0
                 if (title.isNotBlank() && expenseAmount > 0 && category.isNotBlank() && paymentMethod.isNotBlank()) {
                     val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
-                    viewModel.addExpense(title, expenseAmount, category, paymentMethod, notes, scheduledMillis, alarmEnabled)
+                    viewModel.addExpense(title, expenseAmount, currency, category, paymentMethod, notes, scheduledMillis, alarmEnabled)
                     onDismiss()
                 }
             }) { Text("Add") }
@@ -242,6 +266,7 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
     val initialCal = remember(expense.scheduledAtMillis) { Calendar.getInstance().apply { timeInMillis = expense.scheduledAtMillis } }
     var title by remember { mutableStateOf(expense.title) }
     var amount by remember { mutableStateOf(expense.amount.toString()) }
+    var currency by remember { mutableStateOf(expense.currency.ifBlank { "USD" }) }
     var category by remember { mutableStateOf(expense.category) }
     var paymentMethod by remember { mutableStateOf(expense.paymentMethod) }
     var notes by remember { mutableStateOf(expense.notes) }
@@ -293,6 +318,10 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
                 OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = paymentMethod, onValueChange = { paymentMethod = it }, label = { Text("Payment Method") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                CurrencySelector(
+                    selectedCurrency = currency,
+                    onCurrencySelected = { currency = it }
+                )
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text("📅 ${formatDate(selectedDate)}")
                 }
@@ -312,6 +341,7 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
                     expense.copy(
                         title = title,
                         amount = amount.toDoubleOrNull() ?: 0.0,
+                        currency = currency,
                         category = category,
                         paymentMethod = paymentMethod,
                         notes = notes,
@@ -326,3 +356,28 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
     )
 }
 
+@Composable
+private fun CurrencySelector(
+    selectedCurrency: String,
+    onCurrencySelected: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Currency", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        supportedCurrencies.chunked(3).forEach { rowCurrencies ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                rowCurrencies.forEach { code ->
+                    FilterChip(
+                        selected = selectedCurrency == code,
+                        onClick = { onCurrencySelected(code) },
+                        label = { Text(code) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
+                }
+            }
+        }
+    }
+}

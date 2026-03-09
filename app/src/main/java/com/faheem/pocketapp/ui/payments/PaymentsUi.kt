@@ -28,6 +28,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,14 +51,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.faheem.pocketapp.MainViewModel
 import com.faheem.pocketapp.PaymentItem
+import com.faheem.pocketapp.ui.common.formatAmountWithCurrency
 import com.faheem.pocketapp.ui.common.formatDate
 import com.faheem.pocketapp.ui.common.formatDateTime
 import com.faheem.pocketapp.ui.common.mergeDateAndTimeMillis
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import com.faheem.pocketapp.ui.common.supportedCurrencies
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import java.util.Calendar
 import java.util.Locale
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun PaymentsScreen(
     payments: List<PaymentItem>,
@@ -64,27 +71,36 @@ fun PaymentsScreen(
     onDelete: (PaymentItem) -> Unit = {}
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-
-    SwipeRefresh(
-        state = rememberSwipeRefreshState(isRefreshing),
+    val refreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             isRefreshing = false
-        },
-        modifier = Modifier.fillMaxSize()
+        }
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(refreshState)
     ) {
         if (payments.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No payments scheduled")
             }
-            return@SwipeRefresh
-        }
-
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-            items(payments) { payment ->
-                PaymentCard(payment = payment, onEdit = onEdit, onDelete = onDelete)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                items(payments) { payment ->
+                    PaymentCard(payment = payment, onEdit = onEdit, onDelete = onDelete)
+                }
             }
         }
+
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = refreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 
@@ -113,7 +129,11 @@ fun PaymentCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                Text("$${String.format(Locale.US, "%.2f", payment.amount)}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    formatAmountWithCurrency(payment.amount, payment.currency),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                     Text("$typeIcon $typeLabel", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                 }
@@ -151,6 +171,7 @@ fun PaymentCard(
 fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
+    var currency by remember { mutableStateOf("USD") }
     var paymentType by remember { mutableStateOf("have_to_take") }
     var description by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -159,9 +180,12 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var alarmEnabled by remember { mutableStateOf(true) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var inputError by remember { mutableStateOf<String?>(null) }
 
-    val now = System.currentTimeMillis()
-    val isFutureDate = selectedDate > now
+    val selectedDateTimeMillis = remember(selectedDate, selectedHour, selectedMinute) {
+        mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
+    }
+    val isFutureDateTime = selectedDateTimeMillis > System.currentTimeMillis()
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
@@ -207,16 +231,11 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Payment Type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        listOf("have_to_take" to "📥 Have to Take", "have_to_give" to "📤 Have to Give").forEach { (type, label) ->
-                            TextButton(onClick = { paymentType = type }, modifier = if (paymentType == type) Modifier.weight(1f) else Modifier.weight(1f)) {
-                                Text(label)
-                            }
-                        }
-                    }
-                }
+                CurrencySelector(
+                    selectedCurrency = currency,
+                    onCurrencySelected = { currency = it }
+                )
+                PaymentTypeSelector(selectedType = paymentType, onTypeSelected = { paymentType = it })
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description (optional)") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Schedule Date & Time", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -228,22 +247,51 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     }
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Set Reminder (only for future dates)", style = MaterialTheme.typography.bodyMedium)
-                    Checkbox(checked = alarmEnabled && isFutureDate, onCheckedChange = { alarmEnabled = it }, enabled = isFutureDate)
+                    Text("Set Reminder (only for future date/time)", style = MaterialTheme.typography.bodyMedium)
+                    Checkbox(
+                        checked = alarmEnabled,
+                        onCheckedChange = { alarmEnabled = it },
+                        enabled = isFutureDateTime
+                    )
                 }
-                if (!isFutureDate) {
-                    Text("⚠️ Reminders can only be set for future payment dates", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                if (!isFutureDateTime) {
+                    Text("⚠️ Reminders can only be set for future payment date/time", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    if (alarmEnabled) {
+                        alarmEnabled = false
+                    }
+                }
+                if (inputError != null) {
+                    Text(
+                        text = inputError.orEmpty(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val payAmount = amount.toDoubleOrNull() ?: 0.0
-                    if (title.isNotBlank() && payAmount > 0) {
-                        val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
-                        viewModel.addPayment(title, payAmount, paymentType, description, scheduledMillis, alarmEnabled && isFutureDate)
-                        onDismiss()
+                    val normalizedAmount = amount.trim().replace(',', '.')
+                    val payAmount = normalizedAmount.toDoubleOrNull()
+
+                    when {
+                        title.isBlank() -> inputError = "Payment title is required"
+                        payAmount == null -> inputError = "Enter a valid amount"
+                        payAmount <= 0 -> inputError = "Amount must be greater than 0"
+                        else -> {
+                            inputError = null
+                            viewModel.addPayment(
+                                title = title,
+                                amount = payAmount,
+                                currency = currency,
+                                paymentType = paymentType,
+                                description = description,
+                                scheduledAtMillis = selectedDateTimeMillis,
+                                alarmEnabled = alarmEnabled && isFutureDateTime
+                            )
+                            onDismiss()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -261,6 +309,7 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
     val initialCal = remember(payment.scheduledAtMillis) { Calendar.getInstance().apply { timeInMillis = payment.scheduledAtMillis } }
     var title by remember { mutableStateOf(payment.title) }
     var amount by remember { mutableStateOf(payment.amount.toString()) }
+    var currency by remember { mutableStateOf(payment.currency.ifBlank { "USD" }) }
     var paymentType by remember { mutableStateOf(payment.paymentType) }
     var description by remember { mutableStateOf(payment.description) }
     var selectedDate by remember { mutableStateOf(payment.scheduledAtMillis) }
@@ -269,9 +318,12 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
     var alarmEnabled by remember { mutableStateOf(payment.alarmEnabled) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var inputError by remember { mutableStateOf<String?>(null) }
 
-    val now = System.currentTimeMillis()
-    val isFutureDate = selectedDate > now
+    val selectedDateTimeMillis = remember(selectedDate, selectedHour, selectedMinute) {
+        mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
+    }
+    val isFutureDateTime = selectedDateTimeMillis > System.currentTimeMillis()
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
@@ -317,14 +369,11 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Payment Type", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        listOf("have_to_take" to "📥 Have to Take", "have_to_give" to "📤 Have to Give").forEach { (type, label) ->
-                            TextButton(onClick = { paymentType = type }, modifier = Modifier.weight(1f)) { Text(label) }
-                        }
-                    }
-                }
+                CurrencySelector(
+                    selectedCurrency = currency,
+                    onCurrencySelected = { currency = it }
+                )
+                PaymentTypeSelector(selectedType = paymentType, onTypeSelected = { paymentType = it })
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text("📅 ${formatDate(selectedDate)}")
@@ -332,20 +381,54 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
                 Button(onClick = { showTimePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text("🕐 ${String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)}")
                 }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Set Reminder", style = MaterialTheme.typography.bodyMedium)
-                    Checkbox(checked = alarmEnabled && isFutureDate, onCheckedChange = { alarmEnabled = it }, enabled = isFutureDate)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Set Reminder (only for future date/time)", style = MaterialTheme.typography.bodyMedium)
+                    Checkbox(
+                        checked = alarmEnabled,
+                        onCheckedChange = { alarmEnabled = it },
+                        enabled = isFutureDateTime
+                    )
+                }
+                if (!isFutureDateTime) {
+                    Text("⚠️ Reminders can only be set for future payment date/time", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    if (alarmEnabled) {
+                        alarmEnabled = false
+                    }
+                }
+                if (inputError != null) {
+                    Text(
+                        text = inputError.orEmpty(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val payAmount = amount.toDoubleOrNull() ?: 0.0
-                    if (title.isNotBlank() && payAmount > 0) {
-                        val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
-                        viewModel.updatePayment(payment.copy(title = title, amount = payAmount, paymentType = paymentType, description = description, scheduledAtMillis = scheduledMillis, alarmEnabled = alarmEnabled && isFutureDate))
-                        onDismiss()
+                    val normalizedAmount = amount.trim().replace(',', '.')
+                    val payAmount = normalizedAmount.toDoubleOrNull()
+
+                    when {
+                        title.isBlank() -> inputError = "Payment title is required"
+                        payAmount == null -> inputError = "Enter a valid amount"
+                        payAmount <= 0 -> inputError = "Amount must be greater than 0"
+                        else -> {
+                            inputError = null
+                            viewModel.updatePayment(
+                                payment.copy(
+                                    title = title,
+                                    amount = payAmount,
+                                    currency = currency,
+                                    paymentType = paymentType,
+                                    description = description,
+                                    scheduledAtMillis = selectedDateTimeMillis,
+                                    alarmEnabled = alarmEnabled && isFutureDateTime
+                                )
+                            )
+                            onDismiss()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -357,3 +440,58 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
     )
 }
 
+@Composable
+private fun CurrencySelector(
+    selectedCurrency: String,
+    onCurrencySelected: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Currency", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        supportedCurrencies.chunked(3).forEach { rowCurrencies ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                rowCurrencies.forEach { code ->
+                    FilterChip(
+                        selected = selectedCurrency == code,
+                        onClick = { onCurrencySelected(code) },
+                        label = { Text(code) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaymentTypeSelector(
+    selectedType: String,
+    onTypeSelected: (String) -> Unit
+) {
+    val options = listOf(
+        "have_to_take" to "Have to Take",
+        "have_to_give" to "Have to Give"
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Payment Type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            options.forEach { (type, label) ->
+                val selected = selectedType == type
+                FilterChip(
+                    selected = selected,
+                    onClick = { onTypeSelected(type) },
+                    label = { Text(label) },
+                    modifier = Modifier.weight(1f),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            }
+        }
+    }
+}

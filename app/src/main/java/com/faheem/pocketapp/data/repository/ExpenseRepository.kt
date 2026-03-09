@@ -10,6 +10,7 @@ interface ExpenseRepository {
     suspend fun addExpense(
         title: String,
         amount: Double,
+        currency: String,
         category: String,
         paymentMethod: String,
         notes: String,
@@ -29,6 +30,7 @@ class ExpenseRepositoryImpl(
     override suspend fun addExpense(
         title: String,
         amount: Double,
+        currency: String,
         category: String,
         paymentMethod: String,
         notes: String,
@@ -42,6 +44,7 @@ class ExpenseRepositoryImpl(
             val payload = mapOf(
                 "title" to title.trim(),
                 "amount" to amount,
+                "currency" to currency,
                 "category" to category.trim(),
                 "paymentMethod" to paymentMethod.trim(),
                 "notes" to notes.trim(),
@@ -62,6 +65,7 @@ class ExpenseRepositoryImpl(
             val payload = mapOf(
                 "title" to item.title.trim(),
                 "amount" to item.amount,
+                "currency" to item.currency,
                 "category" to item.category.trim(),
                 "paymentMethod" to item.paymentMethod.trim(),
                 "notes" to item.notes.trim(),
@@ -99,6 +103,7 @@ class ExpenseRepositoryImpl(
                             id = doc.id,
                             title = doc.getString("title").orEmpty(),
                             amount = doc.getDouble("amount") ?: 0.0,
+                            currency = doc.getString("currency") ?: "USD",
                             category = doc.getString("category").orEmpty(),
                             paymentMethod = doc.getString("paymentMethod").orEmpty(),
                             notes = doc.getString("notes").orEmpty(),
@@ -118,4 +123,3 @@ class ExpenseRepositoryImpl(
     private fun expensesCollection(uid: String) =
         firestore.collection("users").document(uid).collection("expenses")
 }
-
