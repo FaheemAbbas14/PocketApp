@@ -1,16 +1,14 @@
 package com.faheem.pocketapp.ui.splash
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -25,32 +23,75 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
         onSplashFinished()
     }
 
-    Column(
+    // Animation for logo
+    val infiniteTransition = rememberInfiniteTransition(label = "splash_animation")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale_animation"
+    )
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFF7A00)),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFFF7A00),
+                        Color(0xFFFF9500)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "📅",
-            fontSize = 80.sp
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "PocketApp",
-            fontSize = 48.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Your Events, Your Way",
-            fontSize = 18.sp,
-            color = Color.White.copy(alpha = 0.9f),
-            textAlign = TextAlign.Center
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Animated Logo
+            Text(
+                text = "💰",
+                fontSize = 80.sp,
+                modifier = Modifier.scale(scale)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // App Name with shadow effect
+            Text(
+                text = "PocketApp",
+                fontSize = 52.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                letterSpacing = 2.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Catchy Tagline
+            Text(
+                text = "Track Smart, Spend Wise",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White.copy(alpha = 0.95f),
+                textAlign = TextAlign.Center,
+                letterSpacing = 1.sp
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Your Personal Finance Manager",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.White.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

@@ -43,12 +43,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.faheem.pocketapp.MainViewModel
 import com.faheem.pocketapp.TaskItem
 import com.faheem.pocketapp.ui.common.formatDate
 import com.faheem.pocketapp.ui.common.formatDateTime
 import com.faheem.pocketapp.ui.common.mergeDateAndTimeMillis
+import com.faheem.pocketapp.ui.components.DateRange
+import com.faheem.pocketapp.ui.components.DateRangeFilterButton
+import com.faheem.pocketapp.ui.components.FilterPeriod
+import com.faheem.pocketapp.ui.components.filterByDateRange
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
@@ -64,6 +69,9 @@ fun TasksScreen(
     onDelete: (TaskItem) -> Unit = {}
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
+    var selectedPeriod by remember { mutableStateOf(FilterPeriod.ALL) }
+    var activeDateRange by remember { mutableStateOf<DateRange?>(null) }
+
     val refreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
         onRefresh = {
@@ -72,19 +80,48 @@ fun TasksScreen(
         }
     )
 
+    val filteredTasks = remember(tasks, activeDateRange) {
+        filterByDateRange(tasks, activeDateRange) { it.scheduledAtMillis }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .pullRefresh(refreshState)
     ) {
-        if (tasks.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No tasks yet")
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                DateRangeFilterButton(
+                    selectedPeriod = selectedPeriod,
+                    customDateRange = if (selectedPeriod == FilterPeriod.CUSTOM) activeDateRange else null,
+                    onFilterSelected = { period, range ->
+                        selectedPeriod = period
+                        activeDateRange = range
+                    }
+                )
             }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-                items(tasks) { task ->
-                    TaskCard(task = task, onEdit = onEdit, onDelete = onDelete)
+
+            if (filteredTasks.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        if (selectedPeriod == FilterPeriod.ALL) {
+                            "No tasks yet"
+                        } else {
+                            "No tasks in ${selectedPeriod.displayName.lowercase()}"
+                        },
+                        color = Color.Gray
+                    )
+                }
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                    items(filteredTasks) { task ->
+                        TaskCard(task = task, onEdit = onEdit, onDelete = onDelete)
+                    }
                 }
             }
         }

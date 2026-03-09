@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.faheem.pocketapp.EventItem
@@ -83,6 +84,10 @@ import com.google.android.libraries.places.api.model.AutocompleteSessionToken
 import com.google.android.gms.common.api.ApiException
 import androidx.compose.ui.res.stringResource
 import com.faheem.pocketapp.R
+import com.faheem.pocketapp.ui.components.DateRange
+import com.faheem.pocketapp.ui.components.DateRangeFilterButton
+import com.faheem.pocketapp.ui.components.FilterPeriod
+import com.faheem.pocketapp.ui.components.filterByDateRange
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -92,6 +97,9 @@ fun EventsScreen(
     onDelete: (EventItem) -> Unit = {}
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
+    var selectedPeriod by remember { mutableStateOf(FilterPeriod.ALL) }
+    var activeDateRange by remember { mutableStateOf<DateRange?>(null) }
+
     val refreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
         onRefresh = {
@@ -100,19 +108,48 @@ fun EventsScreen(
         }
     )
 
+    val filteredEvents = remember(events, activeDateRange) {
+        filterByDateRange(events, activeDateRange) { it.eventDateMillis }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .pullRefresh(refreshState)
     ) {
-        if (events.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.no_events_yet))
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                DateRangeFilterButton(
+                    selectedPeriod = selectedPeriod,
+                    customDateRange = if (selectedPeriod == FilterPeriod.CUSTOM) activeDateRange else null,
+                    onFilterSelected = { period, range ->
+                        selectedPeriod = period
+                        activeDateRange = range
+                    }
+                )
             }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-                items(events) { event ->
-                    EventCard(event = event, onEdit = onEdit, onDelete = onDelete)
+
+            if (filteredEvents.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        if (selectedPeriod == FilterPeriod.ALL) {
+                            stringResource(R.string.no_events_yet)
+                        } else {
+                            "No events in ${selectedPeriod.displayName.lowercase()}"
+                        },
+                        color = Color.Gray
+                    )
+                }
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                    items(filteredEvents) { event ->
+                        EventCard(event = event, onEdit = onEdit, onDelete = onDelete)
+                    }
                 }
             }
         }

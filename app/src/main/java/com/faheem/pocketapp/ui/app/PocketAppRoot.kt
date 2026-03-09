@@ -1,10 +1,18 @@
 package com.faheem.pocketapp.ui.app
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
@@ -18,6 +26,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -29,8 +38,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.faheem.pocketapp.AuthCache
 import com.faheem.pocketapp.EventItem
 import com.faheem.pocketapp.ExpenseItem
@@ -89,69 +103,226 @@ private fun HomeScreenWithBottomNav(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(R.string.pocket_app_title), style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = uiState.currentUserEmail.orEmpty(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            Surface(
+                shadowElevation = 8.dp,
+                tonalElevation = 0.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFFFF7A00), // Orange
+                                    Color(0xFFFF9E00)  // Light Orange
+                                )
+                            )
                         )
-                    }
-                },
-                actions = {
-                    TextButton(onClick = {
-                        AuthCache.clearCredentials(context)
-                        viewModel.signOut()
-                    }) { Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error) }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        },
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 10.dp) {
-                BottomNavTab.entries.forEach { tab ->
-                    val selected = selectedTab == tab
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { selectedTab = tab },
-                        icon = { Text(text = tab.emoji, style = MaterialTheme.typography.titleMedium) },
-                        label = { Text(stringResource(tab.labelRes)) },
-                        alwaysShowLabel = true,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            indicatorColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ) {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "💰",
+                                        fontSize = 20.sp
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.Start) {
+                                    Text(
+                                        stringResource(R.string.pocket_app_title),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = uiState.currentUserEmail.orEmpty(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.9f)
+                                    )
+                                }
+                            }
+                        },
+                        actions = {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color.White.copy(alpha = 0.2f)
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        AuthCache.clearCredentials(context)
+                                        viewModel.signOut()
+                                    }
+                                ) {
+                                    Text(
+                                        stringResource(R.string.logout),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                            containerColor = Color.Transparent
                         )
                     )
                 }
             }
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.cd_add))
-            }
-        }
-    ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp, vertical = 12.dp)) {
-            if (uiState.errorMessage != null) {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                    Text(uiState.errorMessage, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
+        bottomBar = {
+            Surface(
+                shadowElevation = 16.dp,
+                tonalElevation = 0.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFFFFF8F0), // Very light orange
+                                    Color.White
+                                )
+                            )
+                        )
+                ) {
+                    NavigationBar(
+                        containerColor = Color.Transparent,
+                        tonalElevation = 0.dp
+                    ) {
+                        BottomNavTab.entries.forEach { tab ->
+                            val selected = selectedTab == tab
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = { selectedTab = tab },
+                                icon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .then(
+                                                if (selected)
+                                                    Modifier.background(
+                                                        Brush.linearGradient(
+                                                            colors = listOf(
+                                                                Color(0xFFFF7A00),
+                                                                Color(0xFFFF9E00)
+                                                            )
+                                                        )
+                                                    )
+                                                else
+                                                    Modifier
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = tab.emoji,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontSize = if (selected) 24.sp else 20.sp
+                                        )
+                                    }
+                                },
+                                label = {
+                                    Text(
+                                        stringResource(tab.labelRes),
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selected) Color(0xFFFF7A00) else Color.Gray
+                                    )
+                                },
+                                alwaysShowLabel = true,
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    selectedTextColor = Color(0xFFFF7A00),
+                                    indicatorColor = Color.Transparent,
+                                    unselectedIconColor = Color.Gray,
+                                    unselectedTextColor = Color.Gray
+                                )
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = Color(0xFFFF7A00),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = stringResource(R.string.cd_add),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        containerColor = Color.Transparent
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFFFF8F0), // Very light orange
+                            Color(0xFFFFF0E0), // Light peach
+                            Color.White
+                        ),
+                        startY = 0f,
+                        endY = 1500f
+                    )
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                if (uiState.errorMessage != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            uiState.errorMessage,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-            Text(text = stringResource(selectedTab.labelRes), style = MaterialTheme.typography.titleLarge)
-            Text(text = stringResource(selectedTab.subtitleRes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = stringResource(selectedTab.labelRes),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFF7A00)
+                )
+                Text(
+                    text = stringResource(selectedTab.subtitleRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-            when (selectedTab) {
-                BottomNavTab.TASK_TAB -> TasksScreen(uiState.tasks, onEdit = { editingTask = it }, onDelete = { viewModel.deleteTask(it) })
-                BottomNavTab.EXPENSE_TAB -> ExpensesScreen(uiState.expenses, onEdit = { editingExpense = it }, onDelete = { viewModel.deleteExpense(it) })
-                BottomNavTab.EVENT_TAB -> EventsScreen(uiState.events, onEdit = { editingEvent = it }, onDelete = { viewModel.deleteEvent(it) })
-                BottomNavTab.PAYMENT_TAB -> PaymentsScreen(uiState.payments, onEdit = { editingPayment = it }, onDelete = { viewModel.deletePayment(it) })
+                when (selectedTab) {
+                    BottomNavTab.TASK_TAB -> TasksScreen(uiState.tasks, onEdit = { editingTask = it }, onDelete = { viewModel.deleteTask(it) })
+                    BottomNavTab.EXPENSE_TAB -> ExpensesScreen(uiState.expenses, onEdit = { editingExpense = it }, onDelete = { viewModel.deleteExpense(it) })
+                    BottomNavTab.EVENT_TAB -> EventsScreen(uiState.events, onEdit = { editingEvent = it }, onDelete = { viewModel.deleteEvent(it) })
+                    BottomNavTab.PAYMENT_TAB -> PaymentsScreen(uiState.payments, onEdit = { editingPayment = it }, onDelete = { viewModel.deletePayment(it) })
+                }
             }
         }
     }

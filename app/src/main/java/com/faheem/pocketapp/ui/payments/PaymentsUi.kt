@@ -1,6 +1,7 @@
 package com.faheem.pocketapp.ui.payments
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,13 +20,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,6 +65,16 @@ import com.faheem.pocketapp.ui.common.formatDate
 import com.faheem.pocketapp.ui.common.formatDateTime
 import com.faheem.pocketapp.ui.common.mergeDateAndTimeMillis
 import com.faheem.pocketapp.ui.common.supportedCurrencies
+import com.faheem.pocketapp.ui.components.Currency
+import com.faheem.pocketapp.ui.components.CurrencyInputField
+import com.faheem.pocketapp.ui.components.getDefaultCurrencies
+import com.faheem.pocketapp.ui.components.PaymentMode
+import com.faheem.pocketapp.ui.components.PaymentModeSelector
+import com.faheem.pocketapp.ui.components.getDefaultPaymentModes
+import com.faheem.pocketapp.ui.components.DateRangeFilterButton
+import com.faheem.pocketapp.ui.components.FilterPeriod
+import com.faheem.pocketapp.ui.components.DateRange
+import com.faheem.pocketapp.ui.components.filterByDateRange
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
@@ -71,6 +90,9 @@ fun PaymentsScreen(
     onDelete: (PaymentItem) -> Unit = {}
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
+    var selectedPeriod by remember { mutableStateOf(FilterPeriod.ALL) }
+    var activeDateRange by remember { mutableStateOf<DateRange?>(null) }
+
     val refreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
         onRefresh = {
@@ -79,19 +101,55 @@ fun PaymentsScreen(
         }
     )
 
+    val filteredPayments = remember(payments, activeDateRange) {
+        filterByDateRange(payments, activeDateRange) { it.scheduledAtMillis }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .pullRefresh(refreshState)
     ) {
-        if (payments.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No payments scheduled")
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Filter Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                DateRangeFilterButton(
+                    selectedPeriod = selectedPeriod,
+                    customDateRange = if (selectedPeriod == FilterPeriod.CUSTOM) activeDateRange else null,
+                    onFilterSelected = { period, range ->
+                        selectedPeriod = period
+                        activeDateRange = range
+                    }
+                )
             }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-                items(payments) { payment ->
-                    PaymentCard(payment = payment, onEdit = onEdit, onDelete = onDelete)
+
+            // Payments List
+            if (filteredPayments.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            if (selectedPeriod == FilterPeriod.ALL)
+                                "No payments scheduled"
+                            else
+                                "No payments in ${selectedPeriod.displayName.lowercase()}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(filteredPayments) { payment ->
+                        PaymentCard(payment = payment, onEdit = onEdit, onDelete = onDelete)
+                    }
                 }
             }
         }
@@ -171,7 +229,7 @@ fun PaymentCard(
 fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
-    var currency by remember { mutableStateOf("USD") }
+    var selectedCurrency by remember { mutableStateOf(Currency("USD", "$", "US Dollar")) }
     var paymentType by remember { mutableStateOf("have_to_take") }
     var description by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -224,17 +282,16 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Payment Title") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("Amount") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+
+                CurrencyInputField(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    selectedCurrency = selectedCurrency,
+                    onCurrencySelected = { selectedCurrency = it },
+                    label = "Amount",
+                    modifier = Modifier.fillMaxWidth()
                 )
-                CurrencySelector(
-                    selectedCurrency = currency,
-                    onCurrencySelected = { currency = it }
-                )
+
                 PaymentTypeSelector(selectedType = paymentType, onTypeSelected = { paymentType = it })
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description (optional)") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -284,7 +341,7 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                             viewModel.addPayment(
                                 title = title,
                                 amount = payAmount,
-                                currency = currency,
+                                currency = selectedCurrency.code,
                                 paymentType = paymentType,
                                 description = description,
                                 scheduledAtMillis = selectedDateTimeMillis,
@@ -307,9 +364,13 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
 @Composable
 fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss: () -> Unit) {
     val initialCal = remember(payment.scheduledAtMillis) { Calendar.getInstance().apply { timeInMillis = payment.scheduledAtMillis } }
+
+    val currencies = getDefaultCurrencies()
+    val initialCurrency = currencies.find { it.code == payment.currency.ifBlank { "USD" } } ?: Currency("USD", "$", "US Dollar")
+
     var title by remember { mutableStateOf(payment.title) }
     var amount by remember { mutableStateOf(payment.amount.toString()) }
-    var currency by remember { mutableStateOf(payment.currency.ifBlank { "USD" }) }
+    var selectedCurrency by remember { mutableStateOf(initialCurrency) }
     var paymentType by remember { mutableStateOf(payment.paymentType) }
     var description by remember { mutableStateOf(payment.description) }
     var selectedDate by remember { mutableStateOf(payment.scheduledAtMillis) }
@@ -362,17 +423,16 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Payment Title") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("Amount") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+
+                CurrencyInputField(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    selectedCurrency = selectedCurrency,
+                    onCurrencySelected = { selectedCurrency = it },
+                    label = "Amount",
+                    modifier = Modifier.fillMaxWidth()
                 )
-                CurrencySelector(
-                    selectedCurrency = currency,
-                    onCurrencySelected = { currency = it }
-                )
+
                 PaymentTypeSelector(selectedType = paymentType, onTypeSelected = { paymentType = it })
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
@@ -420,7 +480,7 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
                                 payment.copy(
                                     title = title,
                                     amount = payAmount,
-                                    currency = currency,
+                                    currency = selectedCurrency.code,
                                     paymentType = paymentType,
                                     description = description,
                                     scheduledAtMillis = selectedDateTimeMillis,
@@ -440,55 +500,121 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
     )
 }
 
-@Composable
-private fun CurrencySelector(
-    selectedCurrency: String,
-    onCurrencySelected: (String) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Currency", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        supportedCurrencies.chunked(3).forEach { rowCurrencies ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                rowCurrencies.forEach { code ->
-                    FilterChip(
-                        selected = selectedCurrency == code,
-                        onClick = { onCurrencySelected(code) },
-                        label = { Text(code) },
-                        modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
+data class PaymentType(
+    val id: String,
+    val label: String,
+    val emoji: String
+)
 
+fun getPaymentTypes(): List<PaymentType> = listOf(
+    PaymentType("have_to_take", "Have to Take", "💰"),
+    PaymentType("have_to_give", "Have to Give", "💸")
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PaymentTypeSelector(
     selectedType: String,
     onTypeSelected: (String) -> Unit
 ) {
-    val options = listOf(
-        "have_to_take" to "Have to Take",
-        "have_to_give" to "Have to Give"
-    )
+    val paymentTypes = getPaymentTypes()
+    var expanded by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Payment Type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            options.forEach { (type, label) ->
-                val selected = selectedType == type
-                FilterChip(
-                    selected = selected,
-                    onClick = { onTypeSelected(type) },
-                    label = { Text(label) },
-                    modifier = Modifier.weight(1f),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+    val selected = paymentTypes.find { it.id == selectedType }
+        ?: paymentTypes.first()
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Payment Type",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFF5F5F5))
+                .clickable { expanded = true }
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = selected.emoji,
+                        fontSize = 24.sp
+                    )
+                    Text(
+                        text = selected.label,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFFF7A00)
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Select Payment Type",
+                    tint = Color(0xFFFF7A00)
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.fillMaxWidth(0.8f)
+        ) {
+            paymentTypes.forEach { type ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = type.emoji,
+                                    fontSize = 24.sp
+                                )
+                                Text(
+                                    text = type.label,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            if (type.id == selectedType) {
+                                Text(
+                                    text = "✓",
+                                    fontSize = 20.sp,
+                                    color = Color(0xFFFF7A00)
+                                )
+                            }
+                        }
+                    },
+                    onClick = {
+                        onTypeSelected(type.id)
+                        expanded = false
+                    },
+                    modifier = Modifier.background(
+                        if (type.id == selectedType)
+                            Color(0xFFFF7A00).copy(alpha = 0.1f)
+                        else
+                            Color.Transparent
                     )
                 )
             }
