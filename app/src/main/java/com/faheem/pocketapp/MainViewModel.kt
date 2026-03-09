@@ -16,10 +16,14 @@ import com.faheem.pocketapp.data.repository.PaymentRepositoryImpl
 import com.faheem.pocketapp.data.repository.TaskRepository
 import com.faheem.pocketapp.data.repository.TaskRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestoreException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 data class TaskItem(
     val id: String,
@@ -88,6 +92,7 @@ class MainViewModel(
 ) : AndroidViewModel(application) {
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private var userDataJob: Job? = null
 
     private val _uiState = MutableStateFlow(PocketUiState())
     val uiState: StateFlow<PocketUiState> = _uiState.asStateFlow()
@@ -96,9 +101,13 @@ class MainViewModel(
         viewModelScope.launch {
             authRepository.observeCurrentUser().collect { email ->
                 if (email != null) {
-                    _uiState.value = _uiState.value.copy(currentUserEmail = email)
-                    observeUserData(auth.currentUser?.uid ?: return@collect)
+                    val uid = auth.currentUser?.uid
+                    if (uid != null) {
+                        _uiState.value = _uiState.value.copy(currentUserEmail = email)
+                        observeUserData(uid)
+                    }
                 } else {
+                    userDataJob?.cancel()
                     _uiState.value = PocketUiState()
                 }
             }
@@ -460,26 +469,45 @@ class MainViewModel(
     }
 
     private fun observeUserData(userId: String) {
-        viewModelScope.launch {
-            taskRepository.observeTasks(userId).collect { tasks ->
-                _uiState.value = _uiState.value.copy(tasks = tasks)
+        userDataJob?.cancel()
+        userDataJob = viewModelScope.launch {
+            launch {
+                taskRepository.observeTasks(userId)
+                    .catch { handleDataError(it, "tasks") }
+                    .collect { tasks ->
+                        _uiState.value = _uiState.value.copy(tasks = tasks)
+                    }
+            }
+            launch {
+                expenseRepository.observeExpenses(userId)
+                    .catch { handleDataError(it, "expenses") }
+                    .collect { expenses ->
+                        _uiState.value = _uiState.value.copy(expenses = expenses)
+                    }
+            }
+            launch {
+                eventRepository.observeEvents(userId)
+                    .catch { handleDataError(it, "events") }
+                    .collect { events ->
+                        _uiState.value = _uiState.value.copy(events = events)
+                    }
+            }
+            launch {
+                paymentRepository.observePayments(userId)
+                    .catch { handleDataError(it, "payments") }
+                    .collect { payments ->
+                        _uiState.value = _uiState.value.copy(payments = payments)
+                    }
             }
         }
-        viewModelScope.launch {
-            expenseRepository.observeExpenses(userId).collect { expenses ->
-                _uiState.value = _uiState.value.copy(expenses = expenses)
-            }
+    }
+
+    private fun handleDataError(e: Throwable, type: String) {
+        if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+            // Ignore permission errors during potential logout/transition
+            return
         }
-        viewModelScope.launch {
-            eventRepository.observeEvents(userId).collect { events ->
-                _uiState.value = _uiState.value.copy(events = events)
-            }
-        }
-        viewModelScope.launch {
-            paymentRepository.observePayments(userId).collect { payments ->
-                _uiState.value = _uiState.value.copy(payments = payments)
-            }
-        }
+        setError("Error loading $type: ${e.message}")
     }
 
     private fun validateCredentials(email: String, password: String): Boolean {
@@ -500,10 +528,6 @@ class MainViewModel(
 
     private fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
     }
 }
 
