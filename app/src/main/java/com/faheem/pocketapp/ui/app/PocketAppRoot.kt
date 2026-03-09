@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.faheem.pocketapp.AuthCache
 import com.faheem.pocketapp.EventItem
@@ -50,12 +51,13 @@ import com.faheem.pocketapp.ui.payments.PaymentsScreen
 import com.faheem.pocketapp.ui.tasks.AddTaskDialog
 import com.faheem.pocketapp.ui.tasks.EditTaskDialog
 import com.faheem.pocketapp.ui.tasks.TasksScreen
+import com.faheem.pocketapp.R
 
-private enum class BottomNavTab(val emoji: String, val label: String, val subtitle: String) {
-    TASK_TAB("✓", "Tasks", "Plan and track your work"),
-    EXPENSE_TAB("$", "Expenses", "Control daily spending"),
-    EVENT_TAB("@", "Events", "Stay ahead of upcoming plans"),
-    PAYMENT_TAB("💰", "Payments", "Manage future payments")
+private enum class BottomNavTab(val emoji: String, val labelRes: Int, val subtitleRes: Int) {
+    TASK_TAB("✓", R.string.tab_tasks, R.string.tab_tasks_subtitle),
+    EXPENSE_TAB("$", R.string.tab_expenses, R.string.tab_expenses_subtitle),
+    EVENT_TAB("@", R.string.tab_events, R.string.tab_events_subtitle),
+    PAYMENT_TAB("💰", R.string.tab_payments, R.string.tab_payments_subtitle)
 }
 
 @Composable
@@ -90,7 +92,7 @@ private fun HomeScreenWithBottomNav(
             CenterAlignedTopAppBar(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Pocket App", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.pocket_app_title), style = MaterialTheme.typography.titleMedium)
                         Text(
                             text = uiState.currentUserEmail.orEmpty(),
                             style = MaterialTheme.typography.labelSmall,
@@ -102,7 +104,7 @@ private fun HomeScreenWithBottomNav(
                     TextButton(onClick = {
                         AuthCache.clearCredentials(context)
                         viewModel.signOut()
-                    }) { Text("Logout", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error) }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
@@ -115,7 +117,7 @@ private fun HomeScreenWithBottomNav(
                         selected = selected,
                         onClick = { selectedTab = tab },
                         icon = { Text(text = tab.emoji, style = MaterialTheme.typography.titleMedium) },
-                        label = { Text(tab.label) },
+                        label = { Text(stringResource(tab.labelRes)) },
                         alwaysShowLabel = true,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.onPrimary,
@@ -130,7 +132,7 @@ private fun HomeScreenWithBottomNav(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.cd_add))
             }
         }
     ) { innerPadding ->
@@ -142,8 +144,8 @@ private fun HomeScreenWithBottomNav(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            Text(text = selectedTab.label, style = MaterialTheme.typography.titleLarge)
-            Text(text = selectedTab.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = stringResource(selectedTab.labelRes), style = MaterialTheme.typography.titleLarge)
+            Text(text = stringResource(selectedTab.subtitleRes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             when (selectedTab) {
                 BottomNavTab.TASK_TAB -> TasksScreen(uiState.tasks, onEdit = { editingTask = it }, onDelete = { viewModel.deleteTask(it) })
@@ -168,4 +170,3 @@ private fun HomeScreenWithBottomNav(
     editingEvent?.let { EditEventDialog(event = it, viewModel = viewModel, onDismiss = { editingEvent = null }) }
     editingPayment?.let { EditPaymentDialog(payment = it, viewModel = viewModel, onDismiss = { editingPayment = null }) }
 }
-

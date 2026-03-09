@@ -61,6 +61,8 @@ import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import java.util.Calendar
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.faheem.pocketapp.R
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -85,7 +87,7 @@ fun ExpensesScreen(
     ) {
         if (expenses.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No expenses yet")
+                Text(stringResource(R.string.no_expenses_yet))
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
@@ -121,7 +123,7 @@ fun ExpenseCard(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(expense.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = { showDeleteConfirm = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.cd_delete), tint = MaterialTheme.colorScheme.error)
                 }
             }
             Text(
@@ -134,22 +136,22 @@ fun ExpenseCard(
                 Text(expense.notes, style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text("📅 ${formatDateTime(expense.scheduledAtMillis)}", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.scheduled_value, formatDateTime(expense.scheduledAtMillis)), style = MaterialTheme.typography.labelMedium)
         }
     }
 
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Expense?") },
-            text = { Text("Are you sure you want to delete this expense?") },
+            title = { Text(stringResource(R.string.delete_expense_title)) },
+            text = { Text(stringResource(R.string.delete_expense_message)) },
             confirmButton = {
                 Button(onClick = {
                     onDelete(expense)
                     showDeleteConfirm = false
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -170,8 +172,20 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
-    val categories = listOf("Food", "Transport", "Entertainment", "Shopping", "Bills", "Other")
-    val paymentMethods = listOf("Cash", "Card", "UPI", "Online")
+    val categories = listOf(
+        stringResource(R.string.category_food),
+        stringResource(R.string.category_transport),
+        stringResource(R.string.category_entertainment),
+        stringResource(R.string.category_shopping),
+        stringResource(R.string.category_bills),
+        stringResource(R.string.category_other)
+    )
+    val paymentMethods = listOf(
+        stringResource(R.string.payment_cash),
+        stringResource(R.string.payment_card),
+        stringResource(R.string.payment_upi),
+        stringResource(R.string.payment_online)
+    )
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
@@ -181,9 +195,9 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { selectedDate = it }
                     showDatePicker = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) } }
         ) { DatePicker(state = datePickerState) }
     }
 
@@ -191,35 +205,35 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
         val timePickerState = rememberTimePickerState(selectedHour, selectedMinute, false)
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
-            title = { Text("Select Time") },
+            title = { Text(stringResource(R.string.select_time)) },
             text = { TimePicker(state = timePickerState) },
             confirmButton = {
                 TextButton(onClick = {
                     selectedHour = timePickerState.hour
                     selectedMinute = timePickerState.minute
                     showTimePicker = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Expense") },
+        title = { Text(stringResource(R.string.add_expense)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.title)) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = { Text("Amount") },
+                    label = { Text(stringResource(R.string.amount)) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = paymentMethod, onValueChange = { paymentMethod = it }, label = { Text("Payment Method") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text(stringResource(R.string.category)) }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = paymentMethod, onValueChange = { paymentMethod = it }, label = { Text(stringResource(R.string.payment_method)) }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text(stringResource(R.string.notes)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 CurrencySelector(
                     selectedCurrency = currency,
                     onCurrencySelected = { currency = it }
@@ -235,13 +249,13 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     }
                 }
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
-                    Text("📅 ${formatDate(selectedDate)}")
+                    Text(stringResource(R.string.date_value, formatDate(selectedDate)))
                 }
                 Button(onClick = { showTimePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
-                    Text("🕐 ${String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)}")
+                    Text(stringResource(R.string.time_value, String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)))
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Set reminder")
+                    Text(stringResource(R.string.set_reminder))
                     Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
             }
@@ -254,9 +268,9 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     viewModel.addExpense(title, expenseAmount, currency, category, paymentMethod, notes, scheduledMillis, alarmEnabled)
                     onDismiss()
                 }
-            }) { Text("Add") }
+            }) { Text(stringResource(R.string.add)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 
@@ -285,9 +299,9 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { selectedDate = it }
                     showDatePicker = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) } }
         ) { DatePicker(state = datePickerState) }
     }
 
@@ -295,29 +309,29 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
         val timePickerState = rememberTimePickerState(selectedHour, selectedMinute, false)
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
-            title = { Text("Select Time") },
+            title = { Text(stringResource(R.string.select_time)) },
             text = { TimePicker(state = timePickerState) },
             confirmButton = {
                 TextButton(onClick = {
                     selectedHour = timePickerState.hour
                     selectedMinute = timePickerState.minute
                     showTimePicker = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Expense") },
+        title = { Text(stringResource(R.string.edit_expense)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Amount") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = paymentMethod, onValueChange = { paymentMethod = it }, label = { Text("Payment Method") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.title)) }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text(stringResource(R.string.amount)) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text(stringResource(R.string.category)) }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = paymentMethod, onValueChange = { paymentMethod = it }, label = { Text(stringResource(R.string.payment_method)) }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text(stringResource(R.string.notes)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 CurrencySelector(
                     selectedCurrency = currency,
                     onCurrencySelected = { currency = it }
@@ -350,9 +364,9 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
                     )
                 )
                 onDismiss()
-            }) { Text("Update") }
+            }) { Text(stringResource(R.string.update)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 
@@ -362,7 +376,7 @@ private fun CurrencySelector(
     onCurrencySelected: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Currency", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.currency), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         supportedCurrencies.chunked(3).forEach { rowCurrencies ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 rowCurrencies.forEach { code ->

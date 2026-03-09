@@ -29,11 +29,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.faheem.pocketapp.AuthCache
 import com.faheem.pocketapp.MainViewModel
+import com.faheem.pocketapp.R
 
 @Composable
 fun AuthScreen(
@@ -60,12 +62,12 @@ fun AuthScreen(
                 .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text("Pocket", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimary)
+            Text(stringResource(R.string.pocket_short), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimary)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Pocket App", style = MaterialTheme.typography.headlineMedium)
-        Text("Manage tasks, expenses & events", style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.pocket_app_title), style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.manage_app_subtitle), style = MaterialTheme.typography.bodyMedium)
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -86,7 +88,7 @@ fun AuthScreen(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
+                    label = { Text(stringResource(R.string.email)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -96,7 +98,7 @@ fun AuthScreen(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password") },
+                    label = { Text(stringResource(R.string.password)) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -114,7 +116,7 @@ fun AuthScreen(
                         onCheckedChange = { rememberMe = it },
                         enabled = !uiState.isLoading
                     )
-                    Text("Remember me", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.remember_me), style = MaterialTheme.typography.bodySmall)
                 }
 
                 if (uiState.isLoading) {
@@ -138,7 +140,7 @@ fun AuthScreen(
                         modifier = Modifier.weight(1f),
                         enabled = !uiState.isLoading
                     ) {
-                        Text("Login")
+                        Text(stringResource(R.string.login))
                     }
                     Button(
                         onClick = {
@@ -148,11 +150,10 @@ fun AuthScreen(
                         modifier = Modifier.weight(1f),
                         enabled = !uiState.isLoading
                     ) {
-                        Text("Register")
+                        Text(stringResource(R.string.register))
                     }
                 }
             }
         }
     }
 }
-

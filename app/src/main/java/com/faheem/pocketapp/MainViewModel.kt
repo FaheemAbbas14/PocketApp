@@ -48,6 +48,9 @@ data class EventItem(
     val title: String,
     val description: String,
     val eventDateMillis: Long,
+    val locationName: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val alarmEnabled: Boolean,
     val updatedAt: Long
 )
@@ -281,14 +284,30 @@ class MainViewModel(
         }
     }
 
-    fun addEvent(title: String, description: String, eventDateMillis: Long, alarmEnabled: Boolean) {
+    fun addEvent(
+        title: String,
+        description: String,
+        eventDateMillis: Long,
+        locationName: String,
+        latitude: Double?,
+        longitude: Double?,
+        alarmEnabled: Boolean
+    ) {
         if (title.isBlank()) {
             setError("Event title is required.")
             return
         }
 
         viewModelScope.launch {
-            eventRepository.addEvent(title, description, eventDateMillis, alarmEnabled)
+            eventRepository.addEvent(
+                title = title,
+                description = description,
+                eventDateMillis = eventDateMillis,
+                locationName = locationName,
+                latitude = latitude,
+                longitude = longitude,
+                alarmEnabled = alarmEnabled
+            )
                 .onSuccess {
                     if (alarmEnabled) {
                         AlarmScheduler.scheduleReminder(
