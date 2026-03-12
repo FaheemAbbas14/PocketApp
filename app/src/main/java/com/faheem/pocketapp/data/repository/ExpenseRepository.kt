@@ -16,7 +16,7 @@ interface ExpenseRepository {
         notes: String,
         scheduledAtMillis: Long,
         alarmEnabled: Boolean
-    ): Result<Unit>
+    ): Result<String>
     suspend fun updateExpense(item: ExpenseItem): Result<Unit>
     suspend fun deleteExpense(item: ExpenseItem): Result<Unit>
     fun observeExpenses(userId: String): kotlinx.coroutines.flow.Flow<List<ExpenseItem>>
@@ -36,7 +36,7 @@ class ExpenseRepositoryImpl(
         notes: String,
         scheduledAtMillis: Long,
         alarmEnabled: Boolean
-    ): Result<Unit> {
+    ): Result<String> {
         return try {
             val user = auth.currentUser ?: throw Exception("User not logged in")
             val document = expensesCollection(user.uid).document()
@@ -53,7 +53,7 @@ class ExpenseRepositoryImpl(
                 "updatedAt" to now
             )
             document.set(payload).await()
-            Result.success(Unit)
+            Result.success(document.id)
         } catch (e: Exception) {
             Result.failure(e)
         }

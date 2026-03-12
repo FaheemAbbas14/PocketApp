@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import java.util.Calendar
 
 data class TaskItem(
     val id: String,
@@ -150,12 +149,12 @@ class MainViewModel(
 
         viewModelScope.launch {
             taskRepository.addTask(title, details, scheduledAtMillis, alarmEnabled)
-                .onSuccess {
+                .onSuccess { itemId ->
                     if (alarmEnabled) {
                         AlarmScheduler.scheduleReminder(
                             context = getApplication(),
                             module = AlarmScheduler.MODULE_TASK,
-                            itemId = "",
+                            itemId = itemId,
                             title = title.trim(),
                             scheduledAtMillis = scheduledAtMillis
                         )
@@ -232,12 +231,12 @@ class MainViewModel(
 
         viewModelScope.launch {
             expenseRepository.addExpense(title, amount, currency, category, paymentMethod, notes, scheduledAtMillis, alarmEnabled)
-                .onSuccess {
+                .onSuccess { itemId ->
                     if (alarmEnabled) {
                         AlarmScheduler.scheduleReminder(
                             context = getApplication(),
                             module = AlarmScheduler.MODULE_EXPENSE,
-                            itemId = "",
+                            itemId = itemId,
                             title = title.trim(),
                             scheduledAtMillis = scheduledAtMillis
                         )
@@ -317,12 +316,12 @@ class MainViewModel(
                 longitude = longitude,
                 alarmEnabled = alarmEnabled
             )
-                .onSuccess {
+                .onSuccess { itemId ->
                     if (alarmEnabled) {
                         AlarmScheduler.scheduleReminder(
                             context = getApplication(),
                             module = AlarmScheduler.MODULE_EVENT,
-                            itemId = "",
+                            itemId = itemId,
                             title = title.trim(),
                             scheduledAtMillis = eventDateMillis
                         )
@@ -404,12 +403,12 @@ class MainViewModel(
                 scheduledAtMillis = scheduledAtMillis,
                 alarmEnabled = alarmEnabled && scheduledAtMillis > now
             )
-                .onSuccess {
+                .onSuccess { itemId ->
                     if (alarmEnabled && scheduledAtMillis > now) {
                         AlarmScheduler.scheduleReminder(
                             context = getApplication(),
                             module = AlarmScheduler.MODULE_PAYMENT,
-                            itemId = "",
+                            itemId = itemId,
                             title = title.trim(),
                             scheduledAtMillis = scheduledAtMillis
                         )

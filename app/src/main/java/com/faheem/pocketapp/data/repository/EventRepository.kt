@@ -15,7 +15,7 @@ interface EventRepository {
         latitude: Double?,
         longitude: Double?,
         alarmEnabled: Boolean
-    ): Result<Unit>
+    ): Result<String>
 
     suspend fun updateEvent(item: EventItem): Result<Unit>
     suspend fun deleteEvent(item: EventItem): Result<Unit>
@@ -35,7 +35,7 @@ class EventRepositoryImpl(
         latitude: Double?,
         longitude: Double?,
         alarmEnabled: Boolean
-    ): Result<Unit> {
+    ): Result<String> {
         return try {
             val user = auth.currentUser ?: throw Exception("User not logged in")
             val document = eventsCollection(user.uid).document()
@@ -51,7 +51,7 @@ class EventRepositoryImpl(
                 "updatedAt" to now
             )
             document.set(payload).await()
-            Result.success(Unit)
+            Result.success(document.id)
         } catch (e: Exception) {
             Result.failure(e)
         }

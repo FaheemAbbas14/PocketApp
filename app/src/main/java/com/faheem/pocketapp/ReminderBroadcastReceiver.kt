@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -35,13 +36,32 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             AlarmScheduler.MODULE_TASK -> "Task is due in 10 minutes"
             AlarmScheduler.MODULE_EXPENSE -> "Expense reminder in 10 minutes"
             AlarmScheduler.MODULE_EVENT -> "Event starts in 10 minutes"
+            AlarmScheduler.MODULE_PAYMENT -> "Payment reminder in 10 minutes"
             else -> "Reminder"
+        }
+
+        val openAppIntent = context.packageManager
+            .getLaunchIntentForPackage(context.packageName)
+            ?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(EXTRA_MODULE, module)
+                putExtra(EXTRA_ITEM_ID, itemId)
+            }
+
+        val openAppPendingIntent = openAppIntent?.let {
+            PendingIntent.getActivity(
+                context,
+                "$module:$itemId".hashCode(),
+                it,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(body)
+            .setContentIntent(openAppPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()

@@ -7,7 +7,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.tasks.await
 
 interface TaskRepository {
-    suspend fun addTask(title: String, details: String, scheduledAtMillis: Long, alarmEnabled: Boolean): Result<Unit>
+    suspend fun addTask(title: String, details: String, scheduledAtMillis: Long, alarmEnabled: Boolean): Result<String>
     suspend fun updateTask(item: TaskItem): Result<Unit>
     suspend fun deleteTask(item: TaskItem): Result<Unit>
     fun observeTasks(userId: String): kotlinx.coroutines.flow.Flow<List<TaskItem>>
@@ -18,7 +18,7 @@ class TaskRepositoryImpl(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) : TaskRepository {
 
-    override suspend fun addTask(title: String, details: String, scheduledAtMillis: Long, alarmEnabled: Boolean): Result<Unit> {
+    override suspend fun addTask(title: String, details: String, scheduledAtMillis: Long, alarmEnabled: Boolean): Result<String> {
         return try {
             val user = auth.currentUser ?: throw Exception("User not logged in")
             val document = tasksCollection(user.uid).document()
@@ -31,7 +31,7 @@ class TaskRepositoryImpl(
                 "updatedAt" to now
             )
             document.set(payload).await()
-            Result.success(Unit)
+            Result.success(document.id)
         } catch (e: Exception) {
             Result.failure(e)
         }

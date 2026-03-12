@@ -17,7 +17,7 @@ interface PaymentRepository {
         description: String,
         scheduledAtMillis: Long,
         alarmEnabled: Boolean
-    ): Result<Unit>
+    ): Result<String>
 
     suspend fun updatePayment(item: PaymentItem): Result<Unit>
     suspend fun deletePayment(item: PaymentItem): Result<Unit>
@@ -37,7 +37,7 @@ class PaymentRepositoryImpl(
         description: String,
         scheduledAtMillis: Long,
         alarmEnabled: Boolean
-    ): Result<Unit> {
+    ): Result<String> {
         return try {
             val user = auth.currentUser ?: throw Exception("User not logged in")
             val document = paymentsCollection(user.uid).document()
@@ -54,7 +54,7 @@ class PaymentRepositoryImpl(
                 "createdAt" to now
             )
             document.set(payload).await()
-            Result.success(Unit)
+            Result.success(document.id)
         } catch (e: Exception) {
             Result.failure(e)
         }
