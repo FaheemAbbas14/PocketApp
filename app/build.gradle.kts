@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.faheem.pocketapp"
+    namespace = "com.faheemlabs.pocketapp"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -13,7 +13,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.faheem.pocketapp"
+        applicationId = "com.faheemlabs.pocketapp"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

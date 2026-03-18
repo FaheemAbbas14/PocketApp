@@ -85,7 +85,7 @@
     <string name="location_picker_hint">Search with autocomplete or tap map to pick a location.</string>
     <string name="use_location">Use location</string>
     <string name="maps_key_missing">Maps API key missing. Please set MAPS_API_KEY in gradle.properties</string>
-    <string name="places_access_denied">Places API access denied (9011). Enable Places API (New), keep billing active, and allow this API key for package com.faheem.pocketapp with correct SHA-1.</string>
+    <string name="places_access_denied">Places API access denied (9011). Enable Places API (New), keep billing active, and allow this API key for package com.faheemlabs.pocketapp with correct SHA-1.</string>
     <string name="places_fetch_failed">Unable to fetch suggestions</string>
     <string name="places_init_failed">Unable to initialize Places SDK</string>
     <string name="selected_location_title">Selected location</string>
