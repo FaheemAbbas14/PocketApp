@@ -61,6 +61,7 @@ fun AuthScreen(
     var email by remember { mutableStateOf(AuthCache.getCachedEmail(context) ?: "") }
     var password by remember { mutableStateOf(AuthCache.getCachedPassword(context) ?: "") }
     var rememberMe by remember { mutableStateOf(AuthCache.isRememberMeEnabled(context)) }
+    var showForgotPassword by remember { mutableStateOf(false) }
 
     // Animation for logo
     val infiniteTransition = rememberInfiniteTransition(label = "logo")
@@ -254,6 +255,21 @@ fun AuthScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    // Forgot Password Link
+                    androidx.compose.material3.TextButton(
+                        onClick = { showForgotPassword = true },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(
+                            "Forgot Password?",
+                            fontSize = 12.sp,
+                            color = Color(0xFFFF7A00),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     // Login Button with Gradient
                     Button(
                         onClick = {
@@ -328,5 +344,153 @@ fun AuthScreen(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+
+    // Forgot Password Dialog
+    if (showForgotPassword) {
+        ForgotPasswordDialog(
+            viewModel = viewModel,
+            onDismiss = { showForgotPassword = false }
+        )
+    }
+}
+
+@Composable
+fun ForgotPasswordDialog(
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    var resetEmail by remember { mutableStateOf("") }
+    var resetEmailSent by remember { mutableStateOf(false) }
+
+    if (resetEmailSent) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Text(
+                    text = "Reset Email Sent",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4CAF50)
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "✓ Password reset link sent successfully!",
+                        fontSize = 14.sp,
+                        color = Color.Black,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Text(
+                        text = "Check your email and follow the instructions to reset your password.",
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                ) {
+                    Text("Done", color = Color.White)
+                }
+            }
+        )
+    } else {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Text(
+                    text = "Reset Password",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFF7A00)
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Enter your email address and we'll send you a link to reset your password.",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+
+                    OutlinedTextField(
+                        value = resetEmail,
+                        onValueChange = { resetEmail = it },
+                        label = { Text(stringResource(R.string.email)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.Email,
+                                contentDescription = null,
+                                tint = Color(0xFFFF7A00)
+                            )
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        enabled = !uiState.isLoading,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFFF7A00),
+                            focusedLabelColor = Color(0xFFFF7A00)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+
+                    if (!uiState.errorMessage.isNullOrEmpty()) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                        ) {
+                            Text(
+                                text = uiState.errorMessage ?: "",
+                                fontSize = 12.sp,
+                                color = Color(0xFFD32F2F),
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+
+                    if (uiState.isLoading) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFFFF7A00)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.sendPasswordResetEmail(resetEmail)
+                        if (uiState.errorMessage == null || uiState.errorMessage == "") {
+                            resetEmailSent = true
+                        }
+                    },
+                    enabled = resetEmail.isNotBlank() && !uiState.isLoading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A00))
+                ) {
+                    Text("Send Reset Link", color = Color.White)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF5F5F5))
+                ) {
+                    Text("Cancel", color = Color.Black)
+                }
+            }
+        )
     }
 }

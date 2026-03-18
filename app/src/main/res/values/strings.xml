@@ -109,4 +109,37 @@
     <string name="amount_greater_than_zero">Amount must be greater than 0</string>
 
     <string name="splash_tagline">Organize your day smarter</string>
+
+    <string name="settings">Settings</string>
+    <string name="settings_subtitle">Manage your account</string>
+    <string name="delete_account">Delete Account &amp; Data</string>
+    <string name="delete_account_warning">This will permanently delete your account and all data. This action cannot be undone.</string>
+
+    <string name="account_settings_title">Account Settings</string>
+    <string name="settings_security_section">Security</string>
+    <string name="settings_account_section">Account</string>
+    <string name="settings_danger_zone_section">Danger Zone</string>
+    <string name="settings_change_password_title">Change Password</string>
+    <string name="settings_change_password_subtitle">Update your password</string>
+    <string name="settings_logout_subtitle">Sign out from this device</string>
+    <string name="settings_delete_account_title">Delete Account</string>
+    <string name="settings_delete_account_subtitle">Permanently delete your account &amp; all data</string>
+
+    <string name="delete_account_confirm_title">Delete Account?</string>
+    <string name="delete_account_confirm_intro">This will permanently delete:</string>
+    <string name="delete_account_confirm_item_account">• Your account and login credentials</string>
+    <string name="delete_account_confirm_item_tasks">• All tasks and reminders</string>
+    <string name="delete_account_confirm_item_expenses">• All expenses and records</string>
+    <string name="delete_account_confirm_item_events">• All events and payments</string>
+    <string name="delete_account_confirm_irreversible">This action cannot be undone!</string>
+    <string name="delete_account_confirm_button">Delete Permanently</string>
+
+    <string name="change_password_dialog_title">Change Password</string>
+    <string name="change_password_dialog_hint">Enter a new password (minimum 6 characters)</string>
+    <string name="new_password">New Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="show_password">Show Password</string>
+    <string name="change_password_action">Change Password</string>
+    <string name="cd_password">Password</string>
+    <string name="cd_confirm_password">Confirm Password</string>
 </resources>

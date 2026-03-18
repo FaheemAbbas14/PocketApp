@@ -11,6 +11,9 @@ interface AuthRepository {
     suspend fun register(email: String, password: String): Result<Unit>
     fun logout()
     fun observeCurrentUser(): Flow<String?>
+    suspend fun deleteAccount(): Result<Unit>
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit>
+    suspend fun changePassword(newPassword: String): Result<Unit>
 }
 
 class AuthRepositoryImpl(
@@ -39,11 +42,41 @@ class AuthRepositoryImpl(
         auth.signOut()
     }
 
+    override suspend fun deleteAccount(): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw Exception("No user logged in")
+            user.delete().await()
+            auth.signOut()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override fun observeCurrentUser(): Flow<String?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
             trySend(firebaseAuth.currentUser?.email)
         }
         auth.addAuthStateListener(listener)
         awaitClose { auth.removeAuthStateListener(listener) }
+    }
+
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        return try {
+            auth.sendPasswordResetEmail(email.trim()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun changePassword(newPassword: String): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw Exception("No user logged in")
+            user.updatePassword(newPassword).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

@@ -54,6 +54,7 @@ import com.faheemlabs.pocketapp.PaymentItem
 import com.faheemlabs.pocketapp.PocketUiState
 import com.faheemlabs.pocketapp.TaskItem
 import com.faheemlabs.pocketapp.ui.auth.AuthScreen
+import com.faheemlabs.pocketapp.ui.common.SettingsScreen
 import com.faheemlabs.pocketapp.ui.events.AddEventDialog
 import com.faheemlabs.pocketapp.ui.events.EditEventDialog
 import com.faheemlabs.pocketapp.ui.events.EventsScreen
@@ -72,7 +73,8 @@ private enum class BottomNavTab(val emoji: String, val labelRes: Int, val subtit
     TASK_TAB("✓", R.string.tab_tasks, R.string.tab_tasks_subtitle),
     EXPENSE_TAB("$", R.string.tab_expenses, R.string.tab_expenses_subtitle),
     EVENT_TAB("@", R.string.tab_events, R.string.tab_events_subtitle),
-    PAYMENT_TAB("💰", R.string.tab_payments, R.string.tab_payments_subtitle)
+    PAYMENT_TAB("💰", R.string.tab_payments, R.string.tab_payments_subtitle),
+    SETTINGS_TAB("⚙", R.string.settings, R.string.settings_subtitle)
 }
 
 @Composable
@@ -178,25 +180,6 @@ private fun HomeScreenWithBottomNav(
                                 }
                             }
                         },
-                        actions = {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color.White.copy(alpha = 0.2f)
-                            ) {
-                                TextButton(
-                                    onClick = {
-                                        AuthCache.clearCredentials(context)
-                                        viewModel.signOut()
-                                    }
-                                ) {
-                                    Text(
-                                        stringResource(R.string.logout),
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        },
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                             containerColor = Color.Transparent
                         )
@@ -279,17 +262,19 @@ private fun HomeScreenWithBottomNav(
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = Color(0xFFFF7A00),
-                contentColor = Color.White,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(
-                    Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.cd_add),
-                    modifier = Modifier.size(28.dp)
-                )
+            if (selectedTab != BottomNavTab.SETTINGS_TAB) {
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    containerColor = Color(0xFFFF7A00),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.cd_add),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         },
         containerColor = Color.Transparent
@@ -348,6 +333,7 @@ private fun HomeScreenWithBottomNav(
                     BottomNavTab.EXPENSE_TAB -> ExpensesScreen(uiState.expenses, onEdit = { editingExpense = it }, onDelete = { viewModel.deleteExpense(it) })
                     BottomNavTab.EVENT_TAB -> EventsScreen(uiState.events, onEdit = { editingEvent = it }, onDelete = { viewModel.deleteEvent(it) })
                     BottomNavTab.PAYMENT_TAB -> PaymentsScreen(uiState.payments, onEdit = { editingPayment = it }, onDelete = { viewModel.deletePayment(it) })
+                    BottomNavTab.SETTINGS_TAB -> SettingsScreen(viewModel = viewModel, context = context)
                 }
             }
         }
@@ -359,6 +345,7 @@ private fun HomeScreenWithBottomNav(
             BottomNavTab.EXPENSE_TAB -> AddExpenseDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
             BottomNavTab.EVENT_TAB -> AddEventDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
             BottomNavTab.PAYMENT_TAB -> AddPaymentDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
+            BottomNavTab.SETTINGS_TAB -> {} // No add dialog for settings
         }
     }
 

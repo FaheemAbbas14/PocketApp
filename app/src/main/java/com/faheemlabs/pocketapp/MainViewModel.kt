@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 data class TaskItem(
     val id: String,
@@ -137,9 +138,101 @@ class MainViewModel(
         }
     }
 
-    fun signOut() {
-        authRepository.logout()
+    fun sendPasswordResetEmail(email: String) {
+        if (email.isBlank()) {
+            setError("Email is required.")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            authRepository.sendPasswordResetEmail(email)
+                .onSuccess { clearError() }
+                .onFailure { setError(it.message ?: "Failed to send reset email") }
+            _uiState.value = _uiState.value.copy(isLoading = false)
+        }
     }
+
+    fun changePassword(newPassword: String) {
+        if (newPassword.isBlank()) {
+            setError("Password is required.")
+            return
+        }
+        if (newPassword.length < 6) {
+            setError("Password must be at least 6 characters.")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            authRepository.changePassword(newPassword)
+                .onSuccess { 
+                    clearError()
+                    setError("Password changed successfully!") 
+                }
+                .onFailure { setError(it.message ?: "Failed to change password") }
+            _uiState.value = _uiState.value.copy(isLoading = false)
+        }
+    }
+
+    fun deleteAccount() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            try {
+                val userId = auth.currentUser?.uid
+                if (userId != null) {
+                    // Delete all tasks, expenses, events, and payments from Firestore
+                    deleteAllUserData(userId)
+                }
+                
+                // Delete Firebase Auth account
+                authRepository.deleteAccount()
+                    .onSuccess { clearError() }
+                    .onFailure { setError(it.message ?: "Failed to delete account") }
+            } catch (e: Exception) {
+                setError(e.message ?: "Failed to delete account")
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    private suspend fun deleteAllUserData(userId: String) {
+        try {
+            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            
+            // Delete all tasks
+            val tasksSnapshot = firestore.collection("users").document(userId).collection("tasks").get().await()
+            for (doc in tasksSnapshot.documents) {
+                doc.reference.delete().await()
+            }
+            
+            // Delete all expenses
+            val expensesSnapshot = firestore.collection("users").document(userId).collection("expenses").get().await()
+            for (doc in expensesSnapshot.documents) {
+                doc.reference.delete().await()
+            }
+            
+            // Delete all events
+            val eventsSnapshot = firestore.collection("users").document(userId).collection("events").get().await()
+            for (doc in eventsSnapshot.documents) {
+                doc.reference.delete().await()
+            }
+            
+            // Delete all payments
+            val paymentsSnapshot = firestore.collection("users").document(userId).collection("payments").get().await()
+            for (doc in paymentsSnapshot.documents) {
+                doc.reference.delete().await()
+            }
+            
+            // Delete user document
+            firestore.collection("users").document(userId).delete().await()
+        } catch (_: Exception) {
+            // Log error but continue with account deletion
+            setError("Warning: Some data could not be deleted")
+        }
+    }
+
 
     fun addTask(title: String, details: String, scheduledAtMillis: Long, alarmEnabled: Boolean) {
         if (title.isBlank()) {
@@ -465,6 +558,10 @@ class MainViewModel(
                 }
                 .onFailure { setError(it.message ?: "Unable to delete payment.") }
         }
+    }
+
+    fun signOut() {
+        authRepository.logout()
     }
 
     private fun observeUserData(userId: String) {
