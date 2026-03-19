@@ -15,8 +15,11 @@ interface PaymentRepository {
         currency: String,
         paymentType: String, // "have_to_take" or "have_to_give"
         description: String,
+        attachmentUrl: String,
         scheduledAtMillis: Long,
-        alarmEnabled: Boolean
+        alarmEnabled: Boolean,
+        recurrencePattern: String,
+        priority: String
     ): Result<String>
 
     suspend fun updatePayment(item: PaymentItem): Result<Unit>
@@ -35,8 +38,11 @@ class PaymentRepositoryImpl(
         currency: String,
         paymentType: String,
         description: String,
+        attachmentUrl: String,
         scheduledAtMillis: Long,
-        alarmEnabled: Boolean
+        alarmEnabled: Boolean,
+        recurrencePattern: String,
+        priority: String
     ): Result<String> {
         return try {
             val user = auth.currentUser ?: throw Exception("User not logged in")
@@ -48,8 +54,11 @@ class PaymentRepositoryImpl(
                 "currency" to currency,
                 "paymentType" to paymentType,
                 "description" to description.trim(),
+                "attachmentUrl" to attachmentUrl.trim(),
                 "scheduledAtMillis" to scheduledAtMillis,
                 "alarmEnabled" to alarmEnabled,
+                "recurrencePattern" to recurrencePattern,
+                "priority" to priority,
                 "updatedAt" to now,
                 "createdAt" to now
             )
@@ -69,8 +78,11 @@ class PaymentRepositoryImpl(
                 "currency" to item.currency,
                 "paymentType" to item.paymentType,
                 "description" to item.description.trim(),
+                "attachmentUrl" to item.attachmentUrl.trim(),
                 "scheduledAtMillis" to item.scheduledAtMillis,
                 "alarmEnabled" to item.alarmEnabled,
+                "recurrencePattern" to item.recurrencePattern,
+                "priority" to item.priority,
                 "updatedAt" to System.currentTimeMillis()
             )
             paymentsCollection(user.uid).document(item.id).set(payload).await()
@@ -108,8 +120,11 @@ class PaymentRepositoryImpl(
                             currency = doc.getString("currency") ?: "USD",
                             paymentType = doc.getString("paymentType").orEmpty(),
                             description = doc.getString("description").orEmpty(),
+                            attachmentUrl = doc.getString("attachmentUrl").orEmpty(),
                             scheduledAtMillis = scheduledAtMillis,
                             alarmEnabled = doc.getBoolean("alarmEnabled") ?: false,
+                            recurrencePattern = doc.getString("recurrencePattern") ?: "none",
+                            priority = doc.getString("priority") ?: "medium",
                             updatedAt = doc.getLong("updatedAt") ?: 0L,
                             isFuturePayment = scheduledAtMillis > currentTime
                         )

@@ -10,11 +10,13 @@ interface EventRepository {
     suspend fun addEvent(
         title: String,
         description: String,
+        attachmentUrl: String,
         eventDateMillis: Long,
         locationName: String,
         latitude: Double?,
         longitude: Double?,
-        alarmEnabled: Boolean
+        alarmEnabled: Boolean,
+        recurrencePattern: String
     ): Result<String>
 
     suspend fun updateEvent(item: EventItem): Result<Unit>
@@ -30,11 +32,13 @@ class EventRepositoryImpl(
     override suspend fun addEvent(
         title: String,
         description: String,
+        attachmentUrl: String,
         eventDateMillis: Long,
         locationName: String,
         latitude: Double?,
         longitude: Double?,
-        alarmEnabled: Boolean
+        alarmEnabled: Boolean,
+        recurrencePattern: String
     ): Result<String> {
         return try {
             val user = auth.currentUser ?: throw Exception("User not logged in")
@@ -43,11 +47,13 @@ class EventRepositoryImpl(
             val payload = mapOf(
                 "title" to title.trim(),
                 "description" to description.trim(),
+                "attachmentUrl" to attachmentUrl.trim(),
                 "eventDateMillis" to eventDateMillis,
                 "locationName" to locationName.trim(),
                 "latitude" to latitude,
                 "longitude" to longitude,
                 "alarmEnabled" to alarmEnabled,
+                "recurrencePattern" to recurrencePattern,
                 "updatedAt" to now
             )
             document.set(payload).await()
@@ -63,11 +69,13 @@ class EventRepositoryImpl(
             val payload = mapOf(
                 "title" to item.title.trim(),
                 "description" to item.description.trim(),
+                "attachmentUrl" to item.attachmentUrl.trim(),
                 "eventDateMillis" to item.eventDateMillis,
                 "locationName" to item.locationName.trim(),
                 "latitude" to item.latitude,
                 "longitude" to item.longitude,
                 "alarmEnabled" to item.alarmEnabled,
+                "recurrencePattern" to item.recurrencePattern,
                 "updatedAt" to System.currentTimeMillis()
             )
             eventsCollection(user.uid).document(item.id).set(payload).await()
@@ -100,11 +108,13 @@ class EventRepositoryImpl(
                             id = doc.id,
                             title = doc.getString("title").orEmpty(),
                             description = doc.getString("description").orEmpty(),
+                            attachmentUrl = doc.getString("attachmentUrl").orEmpty(),
                             eventDateMillis = doc.getLong("eventDateMillis") ?: 0L,
                             locationName = doc.getString("locationName").orEmpty(),
                             latitude = doc.getDouble("latitude"),
                             longitude = doc.getDouble("longitude"),
                             alarmEnabled = doc.getBoolean("alarmEnabled") ?: false,
+                            recurrencePattern = doc.getString("recurrencePattern") ?: "none",
                             updatedAt = doc.getLong("updatedAt") ?: 0L
                         )
                     }

@@ -1,5 +1,6 @@
 package com.faheemlabs.pocketapp
 
+import android.R.attr.priority
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -9,6 +10,7 @@ import com.faheemlabs.pocketapp.data.repository.AuthRepository
 import com.faheemlabs.pocketapp.data.repository.AuthRepositoryImpl
 import com.faheemlabs.pocketapp.data.repository.EventRepository
 import com.faheemlabs.pocketapp.data.repository.EventRepositoryImpl
+import com.faheemlabs.pocketapp.data.repository.ExpenseBudget
 import com.faheemlabs.pocketapp.data.repository.ExpenseRepository
 import com.faheemlabs.pocketapp.data.repository.ExpenseRepositoryImpl
 import com.faheemlabs.pocketapp.data.repository.PaymentRepository
@@ -24,13 +26,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.util.Calendar
 
 data class TaskItem(
     val id: String,
     val title: String,
     val details: String,
+    val attachmentUrl: String = "",
     val scheduledAtMillis: Long,
     val alarmEnabled: Boolean,
+    val recurrencePattern: String = "none",
+    val priority: String = "medium",
     val updatedAt: Long
 )
 
@@ -42,8 +48,10 @@ data class ExpenseItem(
     val category: String,
     val paymentMethod: String,
     val notes: String,
+    val attachmentUrl: String = "",
     val scheduledAtMillis: Long,
     val alarmEnabled: Boolean,
+    val recurrencePattern: String = "none",
     val updatedAt: Long
 )
 
@@ -51,11 +59,13 @@ data class EventItem(
     val id: String,
     val title: String,
     val description: String,
+    val attachmentUrl: String = "",
     val eventDateMillis: Long,
     val locationName: String = "",
     val latitude: Double? = null,
     val longitude: Double? = null,
     val alarmEnabled: Boolean,
+    val recurrencePattern: String = "none",
     val updatedAt: Long
 )
 
@@ -66,10 +76,24 @@ data class PaymentItem(
     val currency: String = "USD",
     val paymentType: String, // "have_to_take" or "have_to_give"
     val description: String,
+    val attachmentUrl: String = "",
     val scheduledAtMillis: Long,
     val alarmEnabled: Boolean,
+    val recurrencePattern: String = "none",
+    val priority: String = "medium",
     val updatedAt: Long,
     val isFuturePayment: Boolean = true
+)
+
+data class ExpenseBudgetUiState(
+    val isConfigured: Boolean = false,
+    val limitAmount: Double = 0.0,
+    val currency: String = "USD",
+    val spentAmount: Double = 0.0,
+    val remainingAmount: Double = 0.0,
+    val usagePercent: Float = 0f,
+    val isNearLimit: Boolean = false,
+    val isOverLimit: Boolean = false
 )
 
 data class PocketUiState(
@@ -79,6 +103,7 @@ data class PocketUiState(
     val expenses: List<ExpenseItem> = emptyList(),
     val events: List<EventItem> = emptyList(),
     val payments: List<PaymentItem> = emptyList(),
+    val expenseBudget: ExpenseBudgetUiState = ExpenseBudgetUiState(),
     val errorMessage: String? = null
 )
 
@@ -93,6 +118,7 @@ class MainViewModel(
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private var userDataJob: Job? = null
+    private var monthlyBudgetConfig: ExpenseBudget? = null
 
     private val _uiState = MutableStateFlow(PocketUiState())
     val uiState: StateFlow<PocketUiState> = _uiState.asStateFlow()
@@ -234,14 +260,23 @@ class MainViewModel(
     }
 
 
-    fun addTask(title: String, details: String, scheduledAtMillis: Long, alarmEnabled: Boolean) {
+    fun addTask(
+        title: String,
+        details: String,
+        attachmentUrl: String,
+        scheduledAtMillis: Long,
+        alarmEnabled: Boolean,
+        recurrencePattern: String = "none"
+        ,
+        priority: String = "medium"
+    ) {
         if (title.isBlank()) {
             setError("Task title is required.")
             return
         }
 
         viewModelScope.launch {
-            taskRepository.addTask(title, details, scheduledAtMillis, alarmEnabled)
+            taskRepository.addTask(title, details, attachmentUrl, scheduledAtMillis, alarmEnabled, recurrencePattern, priority)
                 .onSuccess { itemId ->
                     if (alarmEnabled) {
                         AlarmScheduler.scheduleReminder(
@@ -310,8 +345,11 @@ class MainViewModel(
         category: String,
         paymentMethod: String,
         notes: String,
+        attachmentUrl: String,
         scheduledAtMillis: Long,
-        alarmEnabled: Boolean
+        alarmEnabled: Boolean,
+        recurrencePattern: String = "none",
+        priority: String = "medium"
     ) {
         if (title.isBlank()) {
             setError("Expense title is required.")
@@ -323,7 +361,7 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
-            expenseRepository.addExpense(title, amount, currency, category, paymentMethod, notes, scheduledAtMillis, alarmEnabled)
+            expenseRepository.addExpense(title, amount, currency, category, paymentMethod, notes, attachmentUrl, scheduledAtMillis, alarmEnabled, recurrencePattern)
                 .onSuccess { itemId ->
                     if (alarmEnabled) {
                         AlarmScheduler.scheduleReminder(
@@ -385,14 +423,37 @@ class MainViewModel(
         }
     }
 
+    fun setExpenseMonthlyBudget(limitAmount: Double, currency: String) {
+        if (limitAmount <= 0.0) {
+            setError("Budget amount must be greater than 0.")
+            return
+        }
+
+        viewModelScope.launch {
+            expenseRepository.setMonthlyBudget(limitAmount, currency)
+                .onSuccess { clearError() }
+                .onFailure { setError(it.message ?: "Unable to save budget.") }
+        }
+    }
+
+    fun clearExpenseMonthlyBudget() {
+        viewModelScope.launch {
+            expenseRepository.clearMonthlyBudget()
+                .onSuccess { clearError() }
+                .onFailure { setError(it.message ?: "Unable to clear budget.") }
+        }
+    }
+
     fun addEvent(
         title: String,
         description: String,
+        attachmentUrl: String,
         eventDateMillis: Long,
         locationName: String,
         latitude: Double?,
         longitude: Double?,
-        alarmEnabled: Boolean
+        alarmEnabled: Boolean,
+        recurrencePattern: String = "none"
     ) {
         if (title.isBlank()) {
             setError("Event title is required.")
@@ -403,11 +464,13 @@ class MainViewModel(
             eventRepository.addEvent(
                 title = title,
                 description = description,
+                attachmentUrl = attachmentUrl,
                 eventDateMillis = eventDateMillis,
                 locationName = locationName,
                 latitude = latitude,
                 longitude = longitude,
-                alarmEnabled = alarmEnabled
+                alarmEnabled = alarmEnabled,
+                recurrencePattern = recurrencePattern
             )
                 .onSuccess { itemId ->
                     if (alarmEnabled) {
@@ -470,7 +533,18 @@ class MainViewModel(
         }
     }
 
-    fun addPayment(title: String, amount: Double, currency: String, paymentType: String, description: String, scheduledAtMillis: Long, alarmEnabled: Boolean) {
+    fun addPayment(
+        title: String,
+        amount: Double,
+        currency: String,
+        paymentType: String,
+        description: String,
+        attachmentUrl: String,
+        scheduledAtMillis: Long,
+        alarmEnabled: Boolean,
+        recurrencePattern: String = "none",
+        priority: String = "medium"
+    ) {
         if (title.isBlank()) {
             setError("Payment title is required.")
             return
@@ -493,8 +567,11 @@ class MainViewModel(
                 currency = currency,
                 paymentType = paymentType,
                 description = description,
+                attachmentUrl = attachmentUrl,
                 scheduledAtMillis = scheduledAtMillis,
-                alarmEnabled = alarmEnabled && scheduledAtMillis > now
+                alarmEnabled = alarmEnabled && scheduledAtMillis > now,
+                recurrencePattern = recurrencePattern,
+                priority = priority
             )
                 .onSuccess { itemId ->
                     if (alarmEnabled && scheduledAtMillis > now) {
@@ -579,6 +656,15 @@ class MainViewModel(
                     .catch { handleDataError(it, "expenses") }
                     .collect { expenses ->
                         _uiState.value = _uiState.value.copy(expenses = expenses)
+                        recomputeExpenseBudget()
+                    }
+            }
+            launch {
+                expenseRepository.observeMonthlyBudget(userId)
+                    .catch { handleDataError(it, "expense budget") }
+                    .collect { budget ->
+                        monthlyBudgetConfig = budget
+                        recomputeExpenseBudget()
                     }
             }
             launch {
@@ -596,6 +682,62 @@ class MainViewModel(
                     }
             }
         }
+    }
+
+    private fun recomputeExpenseBudget() {
+        val config = monthlyBudgetConfig
+        if (config == null) {
+            _uiState.value = _uiState.value.copy(expenseBudget = ExpenseBudgetUiState())
+            return
+        }
+
+        val now = Calendar.getInstance()
+        val start = Calendar.getInstance().apply {
+            set(Calendar.YEAR, now.get(Calendar.YEAR))
+            set(Calendar.MONTH, now.get(Calendar.MONTH))
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val end = Calendar.getInstance().apply {
+            set(Calendar.YEAR, now.get(Calendar.YEAR))
+            set(Calendar.MONTH, now.get(Calendar.MONTH))
+            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }.timeInMillis
+
+        val monthSpent = _uiState.value.expenses
+            .filter {
+                it.currency == config.currency &&
+                    it.scheduledAtMillis in start..end
+            }
+            .sumOf { it.amount }
+
+        val remaining = config.limitAmount - monthSpent
+        val usage = if (config.limitAmount > 0) {
+            (monthSpent / config.limitAmount).toFloat().coerceAtLeast(0f)
+        } else {
+            0f
+        }
+
+        _uiState.value = _uiState.value.copy(
+            expenseBudget = ExpenseBudgetUiState(
+                isConfigured = true,
+                limitAmount = config.limitAmount,
+                currency = config.currency,
+                spentAmount = monthSpent,
+                remainingAmount = remaining,
+                usagePercent = usage,
+                isNearLimit = usage >= 0.8f && usage < 1f,
+                isOverLimit = usage >= 1f
+            )
+        )
     }
 
     private fun handleDataError(e: Throwable, type: String) {

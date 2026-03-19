@@ -88,6 +88,8 @@ import com.faheemlabs.pocketapp.ui.components.DateRange
 import com.faheemlabs.pocketapp.ui.components.DateRangeFilterButton
 import com.faheemlabs.pocketapp.ui.components.FilterPeriod
 import com.faheemlabs.pocketapp.ui.components.filterByDateRange
+import com.faheemlabs.pocketapp.ui.components.RecurrenceBadge
+import com.faheemlabs.pocketapp.ui.components.RecurrenceSelector
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -202,6 +204,18 @@ fun EventCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            if (event.attachmentUrl.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "🔗 ${event.attachmentUrl}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            if (event.recurrencePattern != "none") {
+                Spacer(modifier = Modifier.height(6.dp))
+                RecurrenceBadge(pattern = event.recurrencePattern)
+            }
         }
     }
 
@@ -226,6 +240,7 @@ fun EventCard(
 fun AddEventDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var attachmentUrl by remember { mutableStateOf("") }
     var locationName by remember { mutableStateOf("") }
     var latitude by remember { mutableStateOf<Double?>(null) }
     var longitude by remember { mutableStateOf<Double?>(null) }
@@ -233,6 +248,7 @@ fun AddEventDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var selectedHour by remember { mutableStateOf(10) }
     var selectedMinute by remember { mutableStateOf(0) }
     var alarmEnabled by remember { mutableStateOf(true) }
+    var recurrencePattern by remember { mutableStateOf("none") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var showMapPicker by remember { mutableStateOf(false) }
@@ -290,6 +306,7 @@ fun AddEventDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.event_title)) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text(stringResource(R.string.description)) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                OutlinedTextField(value = attachmentUrl, onValueChange = { attachmentUrl = it }, label = { Text(stringResource(R.string.attachment_url)) }, modifier = Modifier.fillMaxWidth())
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text(stringResource(R.string.date_value, formatDate(selectedDate)))
                 }
@@ -316,6 +333,11 @@ fun AddEventDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     Text(stringResource(R.string.set_reminder))
                     Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
+                Text(stringResource(R.string.recurrence_repeat))
+                RecurrenceSelector(
+                    selectedPattern = recurrencePattern,
+                    onPatternSelected = { recurrencePattern = it }
+                )
             }
         },
         confirmButton = {
@@ -325,11 +347,13 @@ fun AddEventDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     viewModel.addEvent(
                         title = title,
                         description = description,
+                        attachmentUrl = attachmentUrl,
                         eventDateMillis = eventDateMillis,
                         locationName = locationName,
                         latitude = latitude,
                         longitude = longitude,
-                        alarmEnabled = alarmEnabled
+                        alarmEnabled = alarmEnabled,
+                        recurrencePattern = recurrencePattern
                     )
                     onDismiss()
                 }
@@ -345,6 +369,7 @@ fun EditEventDialog(event: EventItem, viewModel: MainViewModel, onDismiss: () ->
     val initialCal = remember(event.eventDateMillis) { Calendar.getInstance().apply { timeInMillis = event.eventDateMillis } }
     var title by remember { mutableStateOf(event.title) }
     var description by remember { mutableStateOf(event.description) }
+    var attachmentUrl by remember { mutableStateOf(event.attachmentUrl) }
     var locationName by remember { mutableStateOf(event.locationName) }
     var latitude by remember { mutableStateOf(event.latitude) }
     var longitude by remember { mutableStateOf(event.longitude) }
@@ -352,6 +377,7 @@ fun EditEventDialog(event: EventItem, viewModel: MainViewModel, onDismiss: () ->
     var selectedHour by remember { mutableStateOf(initialCal.get(Calendar.HOUR_OF_DAY)) }
     var selectedMinute by remember { mutableStateOf(initialCal.get(Calendar.MINUTE)) }
     var alarmEnabled by remember { mutableStateOf(event.alarmEnabled) }
+    var recurrencePattern by remember { mutableStateOf(event.recurrencePattern) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var showMapPicker by remember { mutableStateOf(false) }
@@ -409,6 +435,7 @@ fun EditEventDialog(event: EventItem, viewModel: MainViewModel, onDismiss: () ->
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.event_title)) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text(stringResource(R.string.description)) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                OutlinedTextField(value = attachmentUrl, onValueChange = { attachmentUrl = it }, label = { Text(stringResource(R.string.attachment_url)) }, modifier = Modifier.fillMaxWidth())
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text(stringResource(R.string.date_value, formatDate(selectedDate)))
                 }
@@ -435,6 +462,11 @@ fun EditEventDialog(event: EventItem, viewModel: MainViewModel, onDismiss: () ->
                     Text(stringResource(R.string.set_reminder))
                     Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
+                Text(stringResource(R.string.recurrence_repeat))
+                RecurrenceSelector(
+                    selectedPattern = recurrencePattern,
+                    onPatternSelected = { recurrencePattern = it }
+                )
             }
         },
         confirmButton = {
@@ -444,11 +476,13 @@ fun EditEventDialog(event: EventItem, viewModel: MainViewModel, onDismiss: () ->
                     event.copy(
                         title = title,
                         description = description,
+                        attachmentUrl = attachmentUrl,
                         eventDateMillis = eventDateMillis,
                         locationName = locationName,
                         latitude = latitude,
                         longitude = longitude,
-                        alarmEnabled = alarmEnabled
+                        alarmEnabled = alarmEnabled,
+                        recurrencePattern = recurrencePattern
                     )
                 )
                 onDismiss()

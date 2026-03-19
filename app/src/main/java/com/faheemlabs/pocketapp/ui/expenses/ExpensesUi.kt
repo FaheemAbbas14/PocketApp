@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
@@ -45,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.faheemlabs.pocketapp.ExpenseItem
+import com.faheemlabs.pocketapp.ExpenseBudgetUiState
 import com.faheemlabs.pocketapp.MainViewModel
 import com.faheemlabs.pocketapp.ui.common.formatAmountWithCurrency
 import com.faheemlabs.pocketapp.ui.common.formatDate
@@ -62,6 +64,8 @@ import com.faheemlabs.pocketapp.ui.components.DateRangeFilterButton
 import com.faheemlabs.pocketapp.ui.components.FilterPeriod
 import com.faheemlabs.pocketapp.ui.components.DateRange
 import com.faheemlabs.pocketapp.ui.components.filterByDateRange
+import com.faheemlabs.pocketapp.ui.components.RecurrenceBadge
+import com.faheemlabs.pocketapp.ui.components.RecurrenceSelector
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
@@ -77,6 +81,9 @@ import com.faheemlabs.pocketapp.R
 @Composable
 fun ExpensesScreen(
     expenses: List<ExpenseItem>,
+    budgetState: ExpenseBudgetUiState = ExpenseBudgetUiState(),
+    onSetBudget: (Double, String) -> Unit = { _, _ -> },
+    onClearBudget: () -> Unit = {},
     onEdit: (ExpenseItem) -> Unit = {},
     onDelete: (ExpenseItem) -> Unit = {}
 ) {
@@ -102,6 +109,14 @@ fun ExpensesScreen(
             .pullRefresh(refreshState)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            ExpenseBudgetCard(
+                budgetState = budgetState,
+                onSetBudget = onSetBudget,
+                onClearBudget = onClearBudget
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             // Filter Button
             Row(
                 modifier = Modifier
@@ -154,6 +169,133 @@ fun ExpensesScreen(
 }
 
 @Composable
+private fun ExpenseBudgetCard(
+    budgetState: ExpenseBudgetUiState,
+    onSetBudget: (Double, String) -> Unit,
+    onClearBudget: () -> Unit
+) {
+    var showBudgetDialog by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (budgetState.isOverLimit) Color(0xFFFFEBEE) else Color(0xFFFFF3E0)
+        ),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = stringResource(R.string.expense_budget_title),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                TextButton(onClick = { showBudgetDialog = true }) {
+                    Text(if (budgetState.isConfigured) stringResource(R.string.update) else stringResource(R.string.set_budget))
+                }
+            }
+
+            if (!budgetState.isConfigured) {
+                Text(
+                    text = stringResource(R.string.expense_budget_not_set),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            } else {
+                Text(
+                    text = stringResource(
+                        R.string.expense_budget_summary,
+                        formatAmountWithCurrency(budgetState.limitAmount, budgetState.currency),
+                        formatAmountWithCurrency(budgetState.spentAmount, budgetState.currency),
+                        formatAmountWithCurrency(kotlin.math.abs(budgetState.remainingAmount), budgetState.currency)
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                LinearProgressIndicator(
+                    progress = { budgetState.usagePercent.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = if (budgetState.isOverLimit) MaterialTheme.colorScheme.error else Color(0xFFFF7A00),
+                    trackColor = Color.White
+                )
+
+                if (budgetState.isOverLimit) {
+                    Text(
+                        text = stringResource(R.string.expense_budget_over_limit),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                } else if (budgetState.isNearLimit) {
+                    Text(
+                        text = stringResource(R.string.expense_budget_near_limit),
+                        color = Color(0xFFE65100),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+
+                TextButton(onClick = onClearBudget) {
+                    Text(stringResource(R.string.clear_budget), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+
+    if (showBudgetDialog) {
+        SetBudgetDialog(
+            initialAmount = if (budgetState.isConfigured) budgetState.limitAmount else 0.0,
+            initialCurrency = budgetState.currency,
+            onDismiss = { showBudgetDialog = false },
+            onConfirm = { amount, currency ->
+                onSetBudget(amount, currency)
+                showBudgetDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun SetBudgetDialog(
+    initialAmount: Double,
+    initialCurrency: String,
+    onDismiss: () -> Unit,
+    onConfirm: (Double, String) -> Unit
+) {
+    val currencies = getDefaultCurrencies()
+    val selectedInitial = currencies.find { it.code == initialCurrency } ?: Currency("USD", "$", "US Dollar")
+
+    var amount by remember { mutableStateOf(if (initialAmount > 0) initialAmount.toString() else "") }
+    var selectedCurrency by remember { mutableStateOf(selectedInitial) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.set_budget)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                CurrencyInputField(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    selectedCurrency = selectedCurrency,
+                    onCurrencySelected = { selectedCurrency = it },
+                    label = stringResource(R.string.monthly_budget_amount),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val parsed = amount.toDoubleOrNull() ?: 0.0
+                if (parsed > 0.0) onConfirm(parsed, selectedCurrency.code)
+            }) {
+                Text(stringResource(R.string.save_budget))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
+}
+
+@Composable
 fun ExpenseCard(
     expense: ExpenseItem,
     onEdit: (ExpenseItem) -> Unit = {},
@@ -183,8 +325,16 @@ fun ExpenseCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(expense.notes, style = MaterialTheme.typography.bodyMedium)
             }
+            if (expense.attachmentUrl.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text("🔗 ${expense.attachmentUrl}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(stringResource(R.string.scheduled_value, formatDateTime(expense.scheduledAtMillis)), style = MaterialTheme.typography.labelMedium)
+            if (expense.recurrencePattern != "none") {
+                Spacer(modifier = Modifier.height(4.dp))
+                RecurrenceBadge(pattern = expense.recurrencePattern)
+            }
         }
     }
 
@@ -213,10 +363,12 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var category by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var attachmentUrl by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(System.currentTimeMillis()) }
     var selectedHour by remember { mutableStateOf(10) }
     var selectedMinute by remember { mutableStateOf(0) }
     var alarmEnabled by remember { mutableStateOf(false) }
+    var recurrencePattern by remember { mutableStateOf("none") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
@@ -285,6 +437,7 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                 )
 
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text(stringResource(R.string.notes)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                OutlinedTextField(value = attachmentUrl, onValueChange = { attachmentUrl = it }, label = { Text(stringResource(R.string.attachment_url)) }, modifier = Modifier.fillMaxWidth())
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text(stringResource(R.string.date_value, formatDate(selectedDate)))
                 }
@@ -295,6 +448,11 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     Text(stringResource(R.string.set_reminder))
                     Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
+                Text(stringResource(R.string.recurrence_repeat))
+                RecurrenceSelector(
+                    selectedPattern = recurrencePattern,
+                    onPatternSelected = { recurrencePattern = it }
+                )
             }
         },
         confirmButton = {
@@ -302,7 +460,18 @@ fun AddExpenseDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                 val expenseAmount = amount.toDoubleOrNull() ?: 0.0
                 if (title.isNotBlank() && expenseAmount > 0 && category.isNotBlank() && paymentMethod.isNotBlank()) {
                     val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
-                    viewModel.addExpense(title, expenseAmount, selectedCurrency.code, category, paymentMethod, notes, scheduledMillis, alarmEnabled)
+                    viewModel.addExpense(
+                        title,
+                        expenseAmount,
+                        selectedCurrency.code,
+                        category,
+                        paymentMethod,
+                        notes,
+                        attachmentUrl,
+                        scheduledMillis,
+                        alarmEnabled,
+                        recurrencePattern
+                    )
                     onDismiss()
                 }
             }) { Text(stringResource(R.string.add)) }
@@ -325,10 +494,12 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
     var category by remember { mutableStateOf(expense.category) }
     var paymentMethod by remember { mutableStateOf(expense.paymentMethod) }
     var notes by remember { mutableStateOf(expense.notes) }
+    var attachmentUrl by remember { mutableStateOf(expense.attachmentUrl) }
     var selectedDate by remember { mutableStateOf(expense.scheduledAtMillis) }
     var selectedHour by remember { mutableStateOf(initialCal.get(Calendar.HOUR_OF_DAY)) }
     var selectedMinute by remember { mutableStateOf(initialCal.get(Calendar.MINUTE)) }
     var alarmEnabled by remember { mutableStateOf(expense.alarmEnabled) }
+    var recurrencePattern by remember { mutableStateOf(expense.recurrencePattern) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
@@ -396,6 +567,7 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
                 )
 
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text(stringResource(R.string.notes)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                OutlinedTextField(value = attachmentUrl, onValueChange = { attachmentUrl = it }, label = { Text(stringResource(R.string.attachment_url)) }, modifier = Modifier.fillMaxWidth())
 
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text("📅 ${formatDate(selectedDate)}")
@@ -407,6 +579,11 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
                     Text("Set reminder")
                     Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
+                Text(stringResource(R.string.recurrence_repeat))
+                RecurrenceSelector(
+                    selectedPattern = recurrencePattern,
+                    onPatternSelected = { recurrencePattern = it }
+                )
             }
         },
         confirmButton = {
@@ -420,8 +597,10 @@ fun EditExpenseDialog(expense: ExpenseItem, viewModel: MainViewModel, onDismiss:
                         category = category,
                         paymentMethod = paymentMethod,
                         notes = notes,
+                        attachmentUrl = attachmentUrl,
                         scheduledAtMillis = scheduledMillis,
-                        alarmEnabled = alarmEnabled
+                        alarmEnabled = alarmEnabled,
+                        recurrencePattern = recurrencePattern
                     )
                 )
                 onDismiss()

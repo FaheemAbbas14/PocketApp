@@ -53,6 +53,10 @@ import com.faheemlabs.pocketapp.ui.common.mergeDateAndTimeMillis
 import com.faheemlabs.pocketapp.ui.components.DateRange
 import com.faheemlabs.pocketapp.ui.components.DateRangeFilterButton
 import com.faheemlabs.pocketapp.ui.components.FilterPeriod
+import com.faheemlabs.pocketapp.ui.components.PrioritySelector
+import com.faheemlabs.pocketapp.ui.components.PriorityBadge
+import com.faheemlabs.pocketapp.ui.components.RecurrenceBadge
+import com.faheemlabs.pocketapp.ui.components.RecurrenceSelector
 import com.faheemlabs.pocketapp.ui.components.filterByDateRange
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
@@ -161,8 +165,22 @@ fun TaskCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(task.details, style = MaterialTheme.typography.bodyMedium)
             }
+            if (task.attachmentUrl.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text("🔗 ${task.attachmentUrl}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text("📅 ${formatDateTime(task.scheduledAtMillis)}", style = MaterialTheme.typography.labelMedium)
+            if (task.scheduledAtMillis < System.currentTimeMillis()) {
+                Text("⚠️ ${"Overdue"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PriorityBadge(priority = task.priority)
+                if (task.recurrencePattern != "none") {
+                    RecurrenceBadge(pattern = task.recurrencePattern)
+                }
+            }
         }
     }
 
@@ -189,10 +207,13 @@ fun TaskCard(
 fun AddTaskDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var details by remember { mutableStateOf("") }
+    var attachmentUrl by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(System.currentTimeMillis() + 86400000) }
     var selectedHour by remember { mutableStateOf(10) }
     var selectedMinute by remember { mutableStateOf(0) }
     var alarmEnabled by remember { mutableStateOf(true) }
+    var recurrencePattern by remember { mutableStateOf("none") }
+    var priority by remember { mutableStateOf("medium") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
@@ -234,6 +255,7 @@ fun AddTaskDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Task Title") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = details, onValueChange = { details = it }, label = { Text("Details") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                OutlinedTextField(value = attachmentUrl, onValueChange = { attachmentUrl = it }, label = { Text("Attachment URL") }, modifier = Modifier.fillMaxWidth())
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text("📅 ${formatDate(selectedDate)}")
                 }
@@ -244,13 +266,20 @@ fun AddTaskDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     Text("Set reminder")
                     Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
+                Text("Repeat")
+                RecurrenceSelector(
+                    selectedPattern = recurrencePattern,
+                    onPatternSelected = { recurrencePattern = it }
+                )
+                Text("Priority")
+                PrioritySelector(selectedPriority = priority, onPrioritySelected = { priority = it })
             }
         },
         confirmButton = {
             Button(onClick = {
                 if (title.isNotBlank()) {
                     val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
-                    viewModel.addTask(title, details, scheduledMillis, alarmEnabled)
+                    viewModel.addTask(title, details, attachmentUrl, scheduledMillis, alarmEnabled, recurrencePattern, priority)
                     onDismiss()
                 }
             }) { Text("Add") }
@@ -265,10 +294,13 @@ fun EditTaskDialog(task: TaskItem, viewModel: MainViewModel, onDismiss: () -> Un
     val initialCal = remember(task.scheduledAtMillis) { Calendar.getInstance().apply { timeInMillis = task.scheduledAtMillis } }
     var title by remember { mutableStateOf(task.title) }
     var details by remember { mutableStateOf(task.details) }
+    var attachmentUrl by remember { mutableStateOf(task.attachmentUrl) }
     var selectedDate by remember { mutableStateOf(task.scheduledAtMillis) }
     var selectedHour by remember { mutableStateOf(initialCal.get(Calendar.HOUR_OF_DAY)) }
     var selectedMinute by remember { mutableStateOf(initialCal.get(Calendar.MINUTE)) }
     var alarmEnabled by remember { mutableStateOf(task.alarmEnabled) }
+    var recurrencePattern by remember { mutableStateOf(task.recurrencePattern) }
+    var priority by remember { mutableStateOf(task.priority) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
@@ -310,6 +342,7 @@ fun EditTaskDialog(task: TaskItem, viewModel: MainViewModel, onDismiss: () -> Un
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Task Title") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = details, onValueChange = { details = it }, label = { Text("Details") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                OutlinedTextField(value = attachmentUrl, onValueChange = { attachmentUrl = it }, label = { Text("Attachment URL") }, modifier = Modifier.fillMaxWidth())
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text("📅 ${formatDate(selectedDate)}")
                 }
@@ -320,12 +353,30 @@ fun EditTaskDialog(task: TaskItem, viewModel: MainViewModel, onDismiss: () -> Un
                     Text("Set reminder")
                     Checkbox(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
                 }
+                Text("Repeat")
+                RecurrenceSelector(
+                    selectedPattern = recurrencePattern,
+                    onPatternSelected = { recurrencePattern = it }
+                )
+                Text("Priority")
+                PrioritySelector(selectedPriority = priority, onPrioritySelected = { priority = it })
             }
         },
         confirmButton = {
             Button(onClick = {
                 val scheduledMillis = mergeDateAndTimeMillis(selectedDate, selectedHour, selectedMinute)
-                viewModel.updateTask(task.copy(title = title, details = details, scheduledAtMillis = scheduledMillis, alarmEnabled = alarmEnabled))
+                viewModel.updateTask(
+                    task.copy(
+                        title = title,
+                        details = details,
+                        attachmentUrl = attachmentUrl,
+                        scheduledAtMillis = scheduledMillis,
+                        alarmEnabled = alarmEnabled,
+                        recurrencePattern = recurrencePattern
+                        ,
+                        priority = priority
+                    )
+                )
                 onDismiss()
             }) { Text("Update") }
         },

@@ -14,7 +14,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -42,11 +51,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.faheemlabs.pocketapp.AlarmScheduler
+import com.faheemlabs.pocketapp.AppLockManager
 import com.faheemlabs.pocketapp.AuthCache
 import com.faheemlabs.pocketapp.EventItem
 import com.faheemlabs.pocketapp.ExpenseItem
@@ -56,7 +67,10 @@ import com.faheemlabs.pocketapp.PocketUiState
 import com.faheemlabs.pocketapp.TaskItem
 import com.faheemlabs.pocketapp.ui.auth.AuthScreen
 import com.faheemlabs.pocketapp.ui.auth.RegistrationScreen
+import com.faheemlabs.pocketapp.ui.calendar.CalendarScreen
+import com.faheemlabs.pocketapp.ui.common.AppLockScreen
 import com.faheemlabs.pocketapp.ui.common.SettingsScreen
+import com.faheemlabs.pocketapp.ui.dashboard.DashboardScreen
 import com.faheemlabs.pocketapp.ui.events.AddEventDialog
 import com.faheemlabs.pocketapp.ui.events.EditEventDialog
 import com.faheemlabs.pocketapp.ui.events.EventsScreen
@@ -66,17 +80,23 @@ import com.faheemlabs.pocketapp.ui.expenses.ExpensesScreen
 import com.faheemlabs.pocketapp.ui.payments.AddPaymentDialog
 import com.faheemlabs.pocketapp.ui.payments.EditPaymentDialog
 import com.faheemlabs.pocketapp.ui.payments.PaymentsScreen
+import com.faheemlabs.pocketapp.ui.reports.ReportsScreen
+import com.faheemlabs.pocketapp.ui.search.SearchScreen
 import com.faheemlabs.pocketapp.ui.tasks.AddTaskDialog
 import com.faheemlabs.pocketapp.ui.tasks.EditTaskDialog
 import com.faheemlabs.pocketapp.ui.tasks.TasksScreen
 import com.faheemlabs.pocketapp.R
 
-private enum class BottomNavTab(val emoji: String, val labelRes: Int, val subtitleRes: Int) {
-    TASK_TAB("✓", R.string.tab_tasks, R.string.tab_tasks_subtitle),
-    EXPENSE_TAB("$", R.string.tab_expenses, R.string.tab_expenses_subtitle),
-    EVENT_TAB("@", R.string.tab_events, R.string.tab_events_subtitle),
-    PAYMENT_TAB("💰", R.string.tab_payments, R.string.tab_payments_subtitle),
-    SETTINGS_TAB("⚙", R.string.settings, R.string.settings_subtitle)
+private enum class BottomNavTab(val icon: ImageVector, val labelRes: Int, val subtitleRes: Int) {
+    DASHBOARD_TAB(Icons.Filled.Home, R.string.tab_dashboard, R.string.tab_dashboard_subtitle),
+    SEARCH_TAB(Icons.Filled.Search, R.string.tab_search, R.string.tab_search_subtitle),
+    CALENDAR_TAB(Icons.Filled.DateRange, R.string.tab_calendar, R.string.tab_calendar_subtitle),
+    REPORTS_TAB(Icons.Filled.Assessment, R.string.tab_reports, R.string.tab_reports_subtitle),
+    TASK_TAB(Icons.AutoMirrored.Filled.Assignment, R.string.tab_tasks, R.string.tab_tasks_subtitle),
+    EXPENSE_TAB(Icons.Filled.AttachMoney, R.string.tab_expenses, R.string.tab_expenses_subtitle),
+    EVENT_TAB(Icons.Filled.Event, R.string.tab_events, R.string.tab_events_subtitle),
+    PAYMENT_TAB(Icons.Filled.AccountBalanceWallet, R.string.tab_payments, R.string.tab_payments_subtitle),
+    SETTINGS_TAB(Icons.Filled.Settings, R.string.settings, R.string.settings_subtitle)
 }
 
 private enum class AuthRoute {
@@ -94,8 +114,10 @@ fun PocketAppRoot(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var authRoute by rememberSaveable { mutableStateOf(AuthRoute.LOGIN) }
+    var appUnlocked by rememberSaveable { mutableStateOf(false) }
 
     if (uiState.currentUserEmail == null) {
+        appUnlocked = false
         when (authRoute) {
             AuthRoute.LOGIN -> AuthScreen(
                 viewModel = viewModel,
@@ -111,6 +133,12 @@ fun PocketAppRoot(
                 onBackToLogin = { authRoute = AuthRoute.LOGIN }
             )
         }
+    } else if (AppLockManager.isEnabled(context) && !appUnlocked) {
+        AppLockScreen(
+            context = context,
+            onUnlocked = { appUnlocked = true },
+            modifier = modifier
+        )
     } else {
         HomeScreenWithBottomNav(
             viewModel = viewModel,
@@ -140,7 +168,7 @@ private fun HomeScreenWithBottomNav(
                 AlarmScheduler.MODULE_EXPENSE -> BottomNavTab.EXPENSE_TAB
                 AlarmScheduler.MODULE_EVENT -> BottomNavTab.EVENT_TAB
                 AlarmScheduler.MODULE_PAYMENT -> BottomNavTab.PAYMENT_TAB
-                else -> BottomNavTab.TASK_TAB
+                else -> BottomNavTab.DASHBOARD_TAB
             }
         )
     }
@@ -255,27 +283,19 @@ private fun HomeScreenWithBottomNav(
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = tab.emoji,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontSize = if (selected) 24.sp else 20.sp
+                                        Icon(
+                                            imageVector = tab.icon,
+                                            contentDescription = stringResource(tab.labelRes),
+                                            tint = if (selected) Color.White else Color(0xFF8F4A00),
+                                            modifier = Modifier.size(if (selected) 26.dp else 22.dp)
                                         )
                                     }
                                 },
-                                label = {
-                                    Text(
-                                        stringResource(tab.labelRes),
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (selected) Color(0xFFFF7A00) else Color.Gray
-                                    )
-                                },
-                                alwaysShowLabel = true,
+                                alwaysShowLabel = false,
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = Color.White,
-                                    selectedTextColor = Color(0xFFFF7A00),
                                     indicatorColor = Color.Transparent,
-                                    unselectedIconColor = Color.Gray,
-                                    unselectedTextColor = Color.Gray
+                                    unselectedIconColor = Color(0xFF8F4A00)
                                 )
                             )
                         }
@@ -284,7 +304,13 @@ private fun HomeScreenWithBottomNav(
             }
         },
         floatingActionButton = {
-            if (selectedTab != BottomNavTab.SETTINGS_TAB) {
+            if (
+                selectedTab != BottomNavTab.SETTINGS_TAB &&
+                selectedTab != BottomNavTab.DASHBOARD_TAB &&
+                selectedTab != BottomNavTab.SEARCH_TAB &&
+                selectedTab != BottomNavTab.CALENDAR_TAB &&
+                selectedTab != BottomNavTab.REPORTS_TAB
+            ) {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
                     containerColor = Color(0xFFFF7A00),
@@ -351,8 +377,19 @@ private fun HomeScreenWithBottomNav(
                 )
 
                 when (selectedTab) {
+                    BottomNavTab.DASHBOARD_TAB -> DashboardScreen(uiState = uiState)
+                    BottomNavTab.SEARCH_TAB -> SearchScreen(uiState = uiState)
+                    BottomNavTab.CALENDAR_TAB -> CalendarScreen(uiState = uiState)
+                    BottomNavTab.REPORTS_TAB -> ReportsScreen(uiState = uiState)
                     BottomNavTab.TASK_TAB -> TasksScreen(uiState.tasks, onEdit = { editingTask = it }, onDelete = { viewModel.deleteTask(it) })
-                    BottomNavTab.EXPENSE_TAB -> ExpensesScreen(uiState.expenses, onEdit = { editingExpense = it }, onDelete = { viewModel.deleteExpense(it) })
+                    BottomNavTab.EXPENSE_TAB -> ExpensesScreen(
+                        expenses = uiState.expenses,
+                        budgetState = uiState.expenseBudget,
+                        onSetBudget = { amount, currency -> viewModel.setExpenseMonthlyBudget(amount, currency) },
+                        onClearBudget = { viewModel.clearExpenseMonthlyBudget() },
+                        onEdit = { editingExpense = it },
+                        onDelete = { viewModel.deleteExpense(it) }
+                    )
                     BottomNavTab.EVENT_TAB -> EventsScreen(uiState.events, onEdit = { editingEvent = it }, onDelete = { viewModel.deleteEvent(it) })
                     BottomNavTab.PAYMENT_TAB -> PaymentsScreen(uiState.payments, onEdit = { editingPayment = it }, onDelete = { viewModel.deletePayment(it) })
                     BottomNavTab.SETTINGS_TAB -> SettingsScreen(viewModel = viewModel, context = context)
@@ -363,6 +400,10 @@ private fun HomeScreenWithBottomNav(
 
     if (showAddDialog) {
         when (selectedTab) {
+            BottomNavTab.DASHBOARD_TAB -> {}
+            BottomNavTab.SEARCH_TAB -> {}
+            BottomNavTab.CALENDAR_TAB -> {}
+            BottomNavTab.REPORTS_TAB -> {}
             BottomNavTab.TASK_TAB -> AddTaskDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
             BottomNavTab.EXPENSE_TAB -> AddExpenseDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
             BottomNavTab.EVENT_TAB -> AddEventDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })

@@ -56,10 +56,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.faheemlabs.pocketapp.MainViewModel
 import com.faheemlabs.pocketapp.PaymentItem
+import com.faheemlabs.pocketapp.R
 import com.faheemlabs.pocketapp.ui.common.formatAmountWithCurrency
 import com.faheemlabs.pocketapp.ui.common.formatDate
 import com.faheemlabs.pocketapp.ui.common.formatDateTime
@@ -75,6 +77,10 @@ import com.faheemlabs.pocketapp.ui.components.DateRangeFilterButton
 import com.faheemlabs.pocketapp.ui.components.FilterPeriod
 import com.faheemlabs.pocketapp.ui.components.DateRange
 import com.faheemlabs.pocketapp.ui.components.filterByDateRange
+import com.faheemlabs.pocketapp.ui.components.PrioritySelector
+import com.faheemlabs.pocketapp.ui.components.PriorityBadge
+import com.faheemlabs.pocketapp.ui.components.RecurrenceBadge
+import com.faheemlabs.pocketapp.ui.components.RecurrenceSelector
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
@@ -200,8 +206,22 @@ fun PaymentCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(payment.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            if (payment.attachmentUrl.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text("🔗 ${payment.attachmentUrl}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text("📅 ${formatDateTime(payment.scheduledAtMillis)}", style = MaterialTheme.typography.labelMedium)
+            if (payment.scheduledAtMillis < System.currentTimeMillis()) {
+                Text("⚠️ Overdue", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PriorityBadge(priority = payment.priority)
+                if (payment.recurrencePattern != "none") {
+                    RecurrenceBadge(pattern = payment.recurrencePattern)
+                }
+            }
             if (payment.alarmEnabled && payment.isFuturePayment) {
                 Text("🔔 Reminder set (10 mins before)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
             }
@@ -232,10 +252,13 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
     var selectedCurrency by remember { mutableStateOf(Currency("USD", "$", "US Dollar")) }
     var paymentType by remember { mutableStateOf("have_to_take") }
     var description by remember { mutableStateOf("") }
+    var attachmentUrl by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(System.currentTimeMillis()) }
     var selectedHour by remember { mutableStateOf(10) }
     var selectedMinute by remember { mutableStateOf(0) }
     var alarmEnabled by remember { mutableStateOf(true) }
+    var recurrencePattern by remember { mutableStateOf("none") }
+    var priority by remember { mutableStateOf("medium") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var inputError by remember { mutableStateOf<String?>(null) }
@@ -294,6 +317,7 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
 
                 PaymentTypeSelector(selectedType = paymentType, onTypeSelected = { paymentType = it })
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description (optional)") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                OutlinedTextField(value = attachmentUrl, onValueChange = { attachmentUrl = it }, label = { Text(stringResource(R.string.attachment_url)) }, modifier = Modifier.fillMaxWidth())
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Schedule Date & Time", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
@@ -317,6 +341,13 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                         alarmEnabled = false
                     }
                 }
+                Text(stringResource(R.string.recurrence_repeat))
+                RecurrenceSelector(
+                    selectedPattern = recurrencePattern,
+                    onPatternSelected = { recurrencePattern = it }
+                )
+                Text("Priority")
+                PrioritySelector(selectedPriority = priority, onPrioritySelected = { priority = it })
                 if (inputError != null) {
                     Text(
                         text = inputError.orEmpty(),
@@ -344,8 +375,11 @@ fun AddPaymentDialog(viewModel: MainViewModel, onDismiss: () -> Unit) {
                                 currency = selectedCurrency.code,
                                 paymentType = paymentType,
                                 description = description,
+                                attachmentUrl = attachmentUrl,
                                 scheduledAtMillis = selectedDateTimeMillis,
-                                alarmEnabled = alarmEnabled && isFutureDateTime
+                                alarmEnabled = alarmEnabled && isFutureDateTime,
+                                recurrencePattern = recurrencePattern,
+                                priority = priority
                             )
                             onDismiss()
                         }
@@ -373,10 +407,13 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
     var selectedCurrency by remember { mutableStateOf(initialCurrency) }
     var paymentType by remember { mutableStateOf(payment.paymentType) }
     var description by remember { mutableStateOf(payment.description) }
+    var attachmentUrl by remember { mutableStateOf(payment.attachmentUrl) }
     var selectedDate by remember { mutableStateOf(payment.scheduledAtMillis) }
     var selectedHour by remember { mutableStateOf(initialCal.get(Calendar.HOUR_OF_DAY)) }
     var selectedMinute by remember { mutableStateOf(initialCal.get(Calendar.MINUTE)) }
     var alarmEnabled by remember { mutableStateOf(payment.alarmEnabled) }
+    var recurrencePattern by remember { mutableStateOf(payment.recurrencePattern) }
+    var priority by remember { mutableStateOf(payment.priority) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var inputError by remember { mutableStateOf<String?>(null) }
@@ -435,6 +472,7 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
 
                 PaymentTypeSelector(selectedType = paymentType, onTypeSelected = { paymentType = it })
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                OutlinedTextField(value = attachmentUrl, onValueChange = { attachmentUrl = it }, label = { Text(stringResource(R.string.attachment_url)) }, modifier = Modifier.fillMaxWidth())
                 Button(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors()) {
                     Text("📅 ${formatDate(selectedDate)}")
                 }
@@ -455,6 +493,13 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
                         alarmEnabled = false
                     }
                 }
+                Text(stringResource(R.string.recurrence_repeat))
+                RecurrenceSelector(
+                    selectedPattern = recurrencePattern,
+                    onPatternSelected = { recurrencePattern = it }
+                )
+                Text("Priority")
+                PrioritySelector(selectedPriority = priority, onPrioritySelected = { priority = it })
                 if (inputError != null) {
                     Text(
                         text = inputError.orEmpty(),
@@ -483,8 +528,11 @@ fun EditPaymentDialog(payment: PaymentItem, viewModel: MainViewModel, onDismiss:
                                     currency = selectedCurrency.code,
                                     paymentType = paymentType,
                                     description = description,
+                                    attachmentUrl = attachmentUrl,
                                     scheduledAtMillis = selectedDateTimeMillis,
-                                    alarmEnabled = alarmEnabled && isFutureDateTime
+                                    alarmEnabled = alarmEnabled && isFutureDateTime,
+                                    recurrencePattern = recurrencePattern,
+                                    priority = priority,
                                 )
                             )
                             onDismiss()

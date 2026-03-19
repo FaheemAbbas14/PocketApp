@@ -1,5 +1,6 @@
 package com.faheemlabs.pocketapp.ui.common
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,9 +17,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -28,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -43,10 +48,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import com.faheemlabs.pocketapp.AppLockManager
 import com.faheemlabs.pocketapp.AuthCache
 import com.faheemlabs.pocketapp.MainViewModel
+import com.faheemlabs.pocketapp.PocketUiState
 import com.faheemlabs.pocketapp.R
 import androidx.compose.ui.res.stringResource
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -57,6 +69,8 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
+    var showAppLockDialog by remember { mutableStateOf(false) }
+    var appLockEnabled by remember { mutableStateOf(AppLockManager.isEnabled(context)) }
 
     Column(
         modifier = modifier
@@ -91,11 +105,23 @@ fun SettingsScreen(
             backgroundColor = Color(0xFFFFE5CC)
         )
 
+        SettingButton(
+            icon = Icons.Filled.Security,
+            title = stringResource(R.string.app_lock_title),
+            subtitle = if (appLockEnabled) {
+                stringResource(R.string.app_lock_enabled_subtitle)
+            } else {
+                stringResource(R.string.app_lock_disabled_subtitle)
+            },
+            onClick = { showAppLockDialog = true },
+            backgroundColor = Color(0xFFFFE5CC)
+        )
+
         // Account Section
         SectionHeader(stringResource(R.string.settings_account_section))
 
         SettingButton(
-            icon = Icons.Filled.Edit,
+            icon = Icons.AutoMirrored.Filled.Logout,
             title = stringResource(R.string.logout),
             subtitle = stringResource(R.string.settings_logout_subtitle),
             onClick = {
@@ -105,12 +131,20 @@ fun SettingsScreen(
             backgroundColor = Color(0xFFFFC4CC)
         )
 
+        SettingButton(
+            icon = Icons.Filled.FileDownload,
+            title = stringResource(R.string.export_data_title),
+            subtitle = stringResource(R.string.export_data_subtitle),
+            onClick = { exportAllDataCsv(context, uiState) },
+            backgroundColor = Color(0xFFFFE7CF)
+        )
+
         // Danger Zone
         Spacer(modifier = Modifier.height(8.dp))
         SectionHeader(stringResource(R.string.settings_danger_zone_section), Color(0xFFD32F2F))
 
         SettingButton(
-            icon = Icons.Filled.Delete,
+            icon = Icons.Filled.DeleteForever,
             title = stringResource(R.string.settings_delete_account_title),
             subtitle = stringResource(R.string.settings_delete_account_subtitle),
             onClick = { showDeleteConfirmation = true },
@@ -172,6 +206,162 @@ fun SettingsScreen(
             onDismiss = { showChangePassword = false }
         )
     }
+
+    if (showAppLockDialog) {
+        AppLockSetupDialog(
+            context = context,
+            isEnabled = appLockEnabled,
+            onDismiss = { showAppLockDialog = false },
+            onStatusChanged = { appLockEnabled = it }
+        )
+    }
+}
+
+@Composable
+private fun AppLockSetupDialog(
+    context: android.content.Context,
+    isEnabled: Boolean,
+    onDismiss: () -> Unit,
+    onStatusChanged: (Boolean) -> Unit
+) {
+    var pin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.app_lock_setup_title),
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFF7A00)
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(R.string.app_lock_setup_hint),
+                    color = Color.Gray,
+                    fontSize = 13.sp
+                )
+
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { if (it.length <= 6) pin = it.filter(Char::isDigit) },
+                    label = { Text(stringResource(R.string.app_lock_pin)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = confirmPin,
+                    onValueChange = { if (it.length <= 6) confirmPin = it.filter(Char::isDigit) },
+                    label = { Text(stringResource(R.string.app_lock_confirm_pin)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (error != null) {
+                    Text(error.orEmpty(), color = Color(0xFFD32F2F), fontSize = 12.sp)
+                }
+
+                if (isEnabled) {
+                    TextButton(onClick = {
+                        AppLockManager.disable(context)
+                        onStatusChanged(false)
+                        onDismiss()
+                    }) {
+                        Text(stringResource(R.string.app_lock_disable), color = Color(0xFFD32F2F))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                when {
+                    pin.length < 4 -> error = context.getString(R.string.app_lock_pin_min)
+                    pin != confirmPin -> error = context.getString(R.string.passwords_do_not_match)
+                    else -> {
+                        AppLockManager.setPin(context, pin)
+                        onStatusChanged(true)
+                        onDismiss()
+                    }
+                }
+            }) {
+                Text(stringResource(R.string.app_lock_save_pin))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+private fun exportAllDataCsv(context: android.content.Context, uiState: PocketUiState) {
+    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    val file = File(context.cacheDir, "pocket_export_$timestamp.csv")
+
+    val rows = buildList {
+        add("module,id,title,details,amount,currency,category,paymentType,paymentMethod,scheduledAtMillis,alarmEnabled,recurrencePattern,priority,attachmentUrl")
+
+        uiState.tasks.forEach {
+            add(
+                listOf(
+                    "task", it.id, it.title, it.details, "", "", "", "", "",
+                    it.scheduledAtMillis.toString(), it.alarmEnabled.toString(), it.recurrencePattern, it.priority, it.attachmentUrl
+                ).joinToString(",") { csvEscape(it) }
+            )
+        }
+
+        uiState.expenses.forEach {
+            add(
+                listOf(
+                    "expense", it.id, it.title, it.notes, it.amount.toString(), it.currency, it.category, "", it.paymentMethod,
+                    it.scheduledAtMillis.toString(), it.alarmEnabled.toString(), it.recurrencePattern, "", it.attachmentUrl
+                ).joinToString(",") { csvEscape(it) }
+            )
+        }
+
+        uiState.events.forEach {
+            add(
+                listOf(
+                    "event", it.id, it.title, it.description, "", "", it.locationName, "", "",
+                    it.eventDateMillis.toString(), it.alarmEnabled.toString(), it.recurrencePattern, "", it.attachmentUrl
+                ).joinToString(",") { csvEscape(it) }
+            )
+        }
+
+        uiState.payments.forEach {
+            add(
+                listOf(
+                    "payment", it.id, it.title, it.description, it.amount.toString(), it.currency, "", it.paymentType, "",
+                    it.scheduledAtMillis.toString(), it.alarmEnabled.toString(), it.recurrencePattern, it.priority, it.attachmentUrl
+                ).joinToString(",") { csvEscape(it) }
+            )
+        }
+    }
+
+    file.writeText(rows.joinToString("\n"))
+
+    val authority = "${context.packageName}.fileprovider"
+    val uri = FileProvider.getUriForFile(context, authority, file)
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/csv"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.export_data_subject))
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.export_data_share_chooser)))
+}
+
+private fun csvEscape(value: String): String {
+    val escaped = value.replace("\"", "\"\"")
+    return "\"$escaped\""
 }
 
 @Composable
@@ -251,7 +441,7 @@ private fun SettingButton(
             }
 
             Icon(
-                imageVector = Icons.Filled.Edit,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = textColor.copy(alpha = 0.5f),
                 modifier = Modifier.size(20.dp)

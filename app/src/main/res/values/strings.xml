@@ -13,9 +13,17 @@
     <string name="logout">Logout</string>
 
     <string name="tab_tasks">Tasks</string>
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_calendar">Calendar</string>
+    <string name="tab_reports">Reports</string>
     <string name="tab_expenses">Expenses</string>
     <string name="tab_events">Events</string>
     <string name="tab_payments">Payments</string>
+    <string name="tab_dashboard_subtitle">See everything important at a glance</string>
+    <string name="tab_search_subtitle">Find tasks, expenses, events and payments fast</string>
+    <string name="tab_calendar_subtitle">View all scheduled items by date</string>
+    <string name="tab_reports_subtitle">See trends and quick insights</string>
     <string name="tab_tasks_subtitle">Plan and track your work</string>
     <string name="tab_expenses_subtitle">Control daily spending</string>
     <string name="tab_events_subtitle">Stay ahead of upcoming plans</string>
@@ -51,6 +59,12 @@
     <string name="category">Category</string>
     <string name="payment_method">Payment method</string>
     <string name="notes">Notes</string>
+    <string name="attachment_url">Attachment URL</string>
+    <string name="priority">Priority</string>
+    <string name="priority_low">Low</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_high">High</string>
+    <string name="overdue">Overdue</string>
     <string name="currency">Currency</string>
     <string name="delete_expense_title">Delete expense?</string>
     <string name="delete_expense_message">Are you sure you want to delete this expense?</string>
@@ -107,6 +121,17 @@
     <string name="payment_title_required">Payment title is required</string>
     <string name="valid_amount_required">Enter a valid amount</string>
     <string name="amount_greater_than_zero">Amount must be greater than 0</string>
+    <string name="expense_budget_title">Monthly Budget</string>
+    <string name="set_budget">Set Budget</string>
+    <string name="save_budget">Save Budget</string>
+    <string name="clear_budget">Clear Budget</string>
+    <string name="monthly_budget_amount">Budget amount</string>
+    <string name="expense_budget_not_set">Set a monthly budget to track your spending progress.</string>
+    <string name="expense_budget_summary">Limit: %1$s
+Spent: %2$s
+Remaining: %3$s</string>
+    <string name="expense_budget_near_limit">Warning: You are close to your monthly limit.</string>
+    <string name="expense_budget_over_limit">You are over your monthly budget limit.</string>
 
     <string name="splash_tagline">Organize your day smarter</string>
 
@@ -124,6 +149,23 @@
     <string name="settings_logout_subtitle">Sign out from this device</string>
     <string name="settings_delete_account_title">Delete Account</string>
     <string name="settings_delete_account_subtitle">Permanently delete your account &amp; all data</string>
+    <string name="export_data_title">Export Data (CSV)</string>
+    <string name="export_data_subtitle">Share tasks, expenses, events and payments</string>
+    <string name="export_data_subject">Pocket App Data Export</string>
+    <string name="export_data_share_chooser">Share CSV export</string>
+    <string name="app_lock_title">App Lock</string>
+    <string name="app_lock_setup_title">Configure App Lock</string>
+    <string name="app_lock_setup_hint">Set a 4+ digit PIN to protect your app.</string>
+    <string name="app_lock_enabled_subtitle">PIN lock is enabled</string>
+    <string name="app_lock_disabled_subtitle">PIN lock is disabled</string>
+    <string name="app_lock_pin">PIN</string>
+    <string name="app_lock_confirm_pin">Confirm PIN</string>
+    <string name="app_lock_pin_min">PIN must be at least 4 digits.</string>
+    <string name="app_lock_save_pin">Save PIN</string>
+    <string name="app_lock_disable">Disable App Lock</string>
+    <string name="app_lock_enter_pin">Enter your PIN to continue</string>
+    <string name="app_lock_invalid_pin">Invalid PIN. Try again.</string>
+    <string name="app_lock_unlock">Unlock</string>
 
     <string name="delete_account_confirm_title">Delete Account?</string>
     <string name="delete_account_confirm_intro">This will permanently delete:</string>
@@ -147,4 +189,48 @@
     <string name="create_account_heading">Create your new account</string>
     <string name="back_to_login">Back to Login</string>
     <string name="passwords_do_not_match">Passwords do not match.</string>
+
+    <string name="dashboard_overview">Overview</string>
+    <string name="dashboard_tasks">Tasks</string>
+    <string name="dashboard_expenses">Expenses</string>
+    <string name="dashboard_events">Events</string>
+    <string name="dashboard_payments">Payments</string>
+    <string name="dashboard_total_items">%1$d items</string>
+    <string name="dashboard_total_records">%1$d records</string>
+    <string name="dashboard_upcoming_count">%1$d upcoming</string>
+    <string name="dashboard_due_count">%1$d due</string>
+    <string name="dashboard_upcoming_title">Upcoming</string>
+    <string name="dashboard_no_upcoming">No upcoming reminders</string>
+    <string name="dashboard_type_task">Task</string>
+    <string name="dashboard_type_event">Event</string>
+    <string name="dashboard_type_payment">Payment</string>
+
+    <string name="recurrence_repeat">Repeat</string>
+    <string name="recurrence_none">Does not repeat</string>
+    <string name="recurrence_daily">Daily</string>
+    <string name="recurrence_weekly">Weekly</string>
+    <string name="recurrence_monthly">Monthly</string>
+
+    <string name="search_all_items">Search across all items</string>
+    <string name="search_start_typing">Start typing to search your data</string>
+    <string name="search_no_results">No matching results found</string>
+    <string name="search_type_all">All</string>
+    <string name="search_type_task">Task</string>
+    <string name="search_type_expense">Expense</string>
+    <string name="search_type_event">Event</string>
+    <string name="search_type_payment">Payment</string>
+
+    <string name="calendar_title">Calendar View</string>
+    <string name="calendar_no_items">No scheduled items for this date</string>
+
+    <string name="reports_title">Statistics</string>
+    <string name="reports_this_month">This Month</string>
+    <string name="reports_expense_totals">Expense Totals by Currency</string>
+    <string name="reports_payment_totals">Payment Totals by Currency</string>
+    <string name="reports_no_expense_data">No expense records in this month</string>
+    <string name="reports_no_payment_data">No payment records in this month</string>
+    <string name="reports_upcoming_tasks">Upcoming tasks</string>
+    <string name="reports_upcoming_events">Upcoming events</string>
+    <string name="reports_upcoming_payments">Upcoming payments</string>
+    <string name="reports_total_items">%1$d items</string>
 </resources>
