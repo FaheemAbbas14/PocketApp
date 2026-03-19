@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.faheemlabs.pocketapp.AuthCache
 import com.faheemlabs.pocketapp.MainViewModel
 import com.faheemlabs.pocketapp.R
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 
 @Composable
 fun AuthScreen(
@@ -59,6 +60,7 @@ fun AuthScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val metrics = rememberResponsiveMetrics()
     var email by remember { mutableStateOf(AuthCache.getCachedEmail(context) ?: "") }
     var password by remember { mutableStateOf(AuthCache.getCachedPassword(context) ?: "") }
     var rememberMe by remember { mutableStateOf(AuthCache.isRememberMeEnabled(context)) }
@@ -95,14 +97,14 @@ fun AuthScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(metrics.screenHorizontalPadding + 8.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Animated Logo
             Box(
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(metrics.topBadgeSize * 3)
                     .scale(scale)
                     .clip(CircleShape)
                     .background(
@@ -122,14 +124,14 @@ fun AuthScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing * 2))
 
             Text(
                 stringResource(R.string.pocket_app_title),
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
-                fontSize = 32.sp
+                fontSize = metrics.settingsHeaderSize
             )
 
             Text(
@@ -139,7 +141,7 @@ fun AuthScreen(
                 fontWeight = FontWeight.Medium
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing * 3))
 
             // Login Card with Glass Effect
             Card(
@@ -151,8 +153,8 @@ fun AuthScreen(
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(metrics.cardPadding + 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(metrics.sectionSpacing + 4.dp)
                 ) {
                     Text(
                         "Welcome Back! 👋",

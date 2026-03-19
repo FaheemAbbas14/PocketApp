@@ -5,20 +5,19 @@ import android.content.Context
 object AuthCache {
     private const val PREFS_NAME = "pocket_auth_prefs"
     private const val KEY_EMAIL = "cached_email"
-    private const val KEY_PASSWORD = "cached_password"
     private const val KEY_REMEMBER_ME = "remember_me"
 
-    fun saveCredentials(context: Context, email: String, password: String, rememberMe: Boolean) {
+    fun saveCredentials(context: Context, email: String, _password: String, rememberMe: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().apply {
             if (rememberMe) {
                 putString(KEY_EMAIL, email)
-                putString(KEY_PASSWORD, password)
                 putBoolean(KEY_REMEMBER_ME, true)
             } else {
                 remove(KEY_EMAIL)
-                remove(KEY_PASSWORD)
                 putBoolean(KEY_REMEMBER_ME, false)
             }
+            // Ensure legacy plaintext password cache is wiped if it existed.
+            remove("cached_password")
             apply()
         }
     }
@@ -31,10 +30,7 @@ object AuthCache {
     }
 
     fun getCachedPassword(context: Context): String? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return if (prefs.getBoolean(KEY_REMEMBER_ME, false)) {
-            prefs.getString(KEY_PASSWORD, null)
-        } else null
+        return null
     }
 
     fun isRememberMeEnabled(context: Context): Boolean {

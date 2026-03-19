@@ -19,6 +19,12 @@ local.properties
 Thumbs.db
 # Firebase
 google-services.json
+# Local secrets / signing material
+*.jks
+*.keystore
+keystore.properties
+.env
+.env.*
 # Logs
 *.log
 # Generated files

@@ -72,6 +72,7 @@ import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 import java.util.Calendar
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
@@ -87,6 +88,7 @@ fun ExpensesScreen(
     onEdit: (ExpenseItem) -> Unit = {},
     onDelete: (ExpenseItem) -> Unit = {}
 ) {
+    val metrics = rememberResponsiveMetrics()
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedPeriod by remember { mutableStateOf(FilterPeriod.ALL) }
     var activeDateRange by remember { mutableStateOf<DateRange?>(null) }
@@ -150,7 +152,7 @@ fun ExpensesScreen(
                 }
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(metrics.sectionSpacing),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredExpenses) { expense ->
@@ -301,6 +303,7 @@ fun ExpenseCard(
     onEdit: (ExpenseItem) -> Unit = {},
     onDelete: (ExpenseItem) -> Unit = {}
 ) {
+    val metrics = rememberResponsiveMetrics()
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Card(
@@ -309,7 +312,7 @@ fun ExpenseCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(metrics.cardPadding)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(expense.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = { showDeleteConfirm = true }) {
@@ -329,10 +332,10 @@ fun ExpenseCard(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("🔗 ${expense.attachmentUrl}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing))
             Text(stringResource(R.string.scheduled_value, formatDateTime(expense.scheduledAtMillis)), style = MaterialTheme.typography.labelMedium)
             if (expense.recurrencePattern != "none") {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(metrics.chipSpacing / 2))
                 RecurrenceBadge(pattern = expense.recurrencePattern)
             }
         }

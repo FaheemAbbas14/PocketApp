@@ -54,6 +54,7 @@ import com.faheemlabs.pocketapp.AuthCache
 import com.faheemlabs.pocketapp.MainViewModel
 import com.faheemlabs.pocketapp.PocketUiState
 import com.faheemlabs.pocketapp.R
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 import androidx.compose.ui.res.stringResource
 import java.io.File
 import java.text.SimpleDateFormat
@@ -67,6 +68,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val metrics = rememberResponsiveMetrics()
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
     var showAppLockDialog by remember { mutableStateOf(false) }
@@ -77,8 +79,8 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(Color(0xFFFFF8F0))
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+            .padding(metrics.screenHorizontalPadding),
+        verticalArrangement = Arrangement.spacedBy(metrics.sectionSpacing * 2)
     ) {
         // Header
         Column(
@@ -88,7 +90,7 @@ fun SettingsScreen(
         ) {
             Text(
                 text = stringResource(R.string.account_settings_title),
-                fontSize = 32.sp,
+                fontSize = metrics.settingsHeaderSize,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFFFF7A00)
             )

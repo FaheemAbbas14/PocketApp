@@ -90,6 +90,7 @@ import com.faheemlabs.pocketapp.ui.components.FilterPeriod
 import com.faheemlabs.pocketapp.ui.components.filterByDateRange
 import com.faheemlabs.pocketapp.ui.components.RecurrenceBadge
 import com.faheemlabs.pocketapp.ui.components.RecurrenceSelector
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -98,6 +99,7 @@ fun EventsScreen(
     onEdit: (EventItem) -> Unit = {},
     onDelete: (EventItem) -> Unit = {}
 ) {
+    val metrics = rememberResponsiveMetrics()
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedPeriod by remember { mutableStateOf(FilterPeriod.ALL) }
     var activeDateRange by remember { mutableStateOf<DateRange?>(null) }
@@ -148,7 +150,10 @@ fun EventsScreen(
                     )
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(metrics.sectionSpacing),
+                    modifier = Modifier.fillMaxSize()
+                ) {
                     items(filteredEvents) { event ->
                         EventCard(event = event, onEdit = onEdit, onDelete = onDelete)
                     }
@@ -170,6 +175,7 @@ fun EventCard(
     onEdit: (EventItem) -> Unit = {},
     onDelete: (EventItem) -> Unit = {}
 ) {
+    val metrics = rememberResponsiveMetrics()
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Card(
@@ -178,7 +184,7 @@ fun EventCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(metrics.cardPadding)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(event.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = { showDeleteConfirm = true }) {
@@ -189,7 +195,7 @@ fun EventCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(event.description, style = MaterialTheme.typography.bodyMedium)
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing))
             Text(
                 stringResource(R.string.scheduled_value, formatDateTime(event.eventDateMillis)),
                 style = MaterialTheme.typography.labelMedium

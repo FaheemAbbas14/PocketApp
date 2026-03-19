@@ -1,7 +1,8 @@
 package com.faheemlabs.pocketapp.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -17,11 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.faheemlabs.pocketapp.R
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 
 val priorityLevels = listOf("low", "medium", "high")
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PrioritySelector(
     selectedPriority: String,
@@ -29,10 +31,12 @@ fun PrioritySelector(
     modifier: Modifier = Modifier
 ) {
     val normalized = selectedPriority.ifBlank { "medium" }
+    val metrics = rememberResponsiveMetrics()
 
-    Row(
+    FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(metrics.chipSpacing),
+        verticalArrangement = Arrangement.spacedBy(metrics.chipSpacing)
     ) {
         priorityLevels.forEach { level ->
             val selected = normalized == level

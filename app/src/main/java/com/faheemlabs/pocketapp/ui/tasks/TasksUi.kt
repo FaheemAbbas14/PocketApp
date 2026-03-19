@@ -62,6 +62,7 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 import java.util.Calendar
 import java.util.Locale
 
@@ -72,6 +73,7 @@ fun TasksScreen(
     onEdit: (TaskItem) -> Unit = {},
     onDelete: (TaskItem) -> Unit = {}
 ) {
+    val metrics = rememberResponsiveMetrics()
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedPeriod by remember { mutableStateOf(FilterPeriod.ALL) }
     var activeDateRange by remember { mutableStateOf<DateRange?>(null) }
@@ -122,7 +124,7 @@ fun TasksScreen(
                     )
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(metrics.sectionSpacing), modifier = Modifier.fillMaxSize()) {
                     items(filteredTasks) { task ->
                         TaskCard(task = task, onEdit = onEdit, onDelete = onDelete)
                     }
@@ -144,6 +146,7 @@ fun TaskCard(
     onEdit: (TaskItem) -> Unit = {},
     onDelete: (TaskItem) -> Unit = {}
 ) {
+    val metrics = rememberResponsiveMetrics()
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Card(
@@ -154,7 +157,7 @@ fun TaskCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(metrics.cardPadding)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(task.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(40.dp)) {
@@ -169,13 +172,13 @@ fun TaskCard(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("🔗 ${task.attachmentUrl}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing))
             Text("📅 ${formatDateTime(task.scheduledAtMillis)}", style = MaterialTheme.typography.labelMedium)
             if (task.scheduledAtMillis < System.currentTimeMillis()) {
                 Text("⚠️ ${"Overdue"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing / 2))
+            Row(horizontalArrangement = Arrangement.spacedBy(metrics.chipSpacing)) {
                 PriorityBadge(priority = task.priority)
                 if (task.recurrencePattern != "none") {
                     RecurrenceBadge(pattern = task.recurrencePattern)

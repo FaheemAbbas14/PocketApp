@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.faheemlabs.pocketapp.AuthCache
 import com.faheemlabs.pocketapp.MainViewModel
 import com.faheemlabs.pocketapp.R
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 
 @Composable
 fun RegistrationScreen(
@@ -59,6 +60,7 @@ fun RegistrationScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val metrics = rememberResponsiveMetrics()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -84,7 +86,7 @@ fun RegistrationScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(metrics.screenHorizontalPadding + 8.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -103,7 +105,7 @@ fun RegistrationScreen(
 
             Box(
                 modifier = Modifier
-                    .size(110.dp)
+                    .size(metrics.topBadgeSize * 2.75f)
                     .clip(CircleShape)
                     .background(
                         Brush.radialGradient(
@@ -119,14 +121,14 @@ fun RegistrationScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing * 2))
 
             Text(
                 text = stringResource(R.string.register_screen_title),
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
-                fontSize = 30.sp
+                fontSize = if (metrics.settingsHeaderSize.value >= 30f) 30.sp else 28.sp
             )
 
             Text(
@@ -136,7 +138,7 @@ fun RegistrationScreen(
                 fontWeight = FontWeight.Medium
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing * 2 + 8.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -145,8 +147,8 @@ fun RegistrationScreen(
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(metrics.cardPadding + 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(metrics.sectionSpacing + 4.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.create_account_heading),

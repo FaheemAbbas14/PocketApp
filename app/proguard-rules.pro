@@ -1,21 +1,20 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Keep runtime-visible annotations used by Android/Firebase tooling.
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preserve Firestore model members that are mapped by name.
+-keepclassmembers class com.faheemlabs.pocketapp.TaskItem { *; }
+-keepclassmembers class com.faheemlabs.pocketapp.ExpenseItem { *; }
+-keepclassmembers class com.faheemlabs.pocketapp.EventItem { *; }
+-keepclassmembers class com.faheemlabs.pocketapp.PaymentItem { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep classes implementing Firebase messaging/service callbacks if added later.
+-keep public class * extends com.google.firebase.messaging.FirebaseMessagingService
+-keep public class * extends com.google.firebase.iid.FirebaseInstanceIdService
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Remove verbose logs from release bytecode.
+-assumenosideeffects class android.util.Log {
+	public static int v(...);
+	public static int d(...);
+	public static int i(...);
+	public static int w(...);
+}

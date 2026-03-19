@@ -85,6 +85,7 @@ import com.faheemlabs.pocketapp.ui.search.SearchScreen
 import com.faheemlabs.pocketapp.ui.tasks.AddTaskDialog
 import com.faheemlabs.pocketapp.ui.tasks.EditTaskDialog
 import com.faheemlabs.pocketapp.ui.tasks.TasksScreen
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 import com.faheemlabs.pocketapp.R
 
 private enum class BottomNavTab(val icon: ImageVector, val labelRes: Int, val subtitleRes: Int) {
@@ -161,6 +162,7 @@ private fun HomeScreenWithBottomNav(
     notificationModule: String? = null,
     notificationItemId: String? = null
 ) {
+    val metrics = rememberResponsiveMetrics()
     var selectedTab by remember {
         mutableStateOf(
             when (notificationModule) {
@@ -205,7 +207,7 @@ private fun HomeScreenWithBottomNav(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(40.dp)
+                                        .size(metrics.topBadgeSize)
                                         .clip(CircleShape)
                                         .background(Color.White.copy(alpha = 0.2f)),
                                     contentAlignment = Alignment.Center
@@ -266,7 +268,7 @@ private fun HomeScreenWithBottomNav(
                                 icon = {
                                     Box(
                                         modifier = Modifier
-                                            .size(48.dp)
+                                            .size(metrics.navItemSize)
                                             .clip(RoundedCornerShape(12.dp))
                                             .then(
                                                 if (selected)
@@ -287,7 +289,9 @@ private fun HomeScreenWithBottomNav(
                                             imageVector = tab.icon,
                                             contentDescription = stringResource(tab.labelRes),
                                             tint = if (selected) Color.White else Color(0xFF8F4A00),
-                                            modifier = Modifier.size(if (selected) 26.dp else 22.dp)
+                                            modifier = Modifier.size(
+                                                if (selected) metrics.navIconSize + 2.dp else metrics.navIconSize
+                                            )
                                         )
                                     }
                                 },
@@ -346,7 +350,10 @@ private fun HomeScreenWithBottomNav(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(
+                        horizontal = metrics.screenHorizontalPadding,
+                        vertical = metrics.screenVerticalPadding
+                    )
             ) {
                 if (uiState.errorMessage != null) {
                     Card(

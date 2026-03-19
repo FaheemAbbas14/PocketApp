@@ -1,7 +1,8 @@
 package com.faheemlabs.pocketapp.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,11 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.faheemlabs.pocketapp.R
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 
 val recurrencePatterns = listOf("none", "daily", "weekly", "monthly")
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RecurrenceSelector(
     selectedPattern: String,
@@ -31,10 +33,12 @@ fun RecurrenceSelector(
     modifier: Modifier = Modifier
 ) {
     val normalized = selectedPattern.ifBlank { "none" }
+    val metrics = rememberResponsiveMetrics()
 
-    Row(
+    FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(metrics.chipSpacing),
+        verticalArrangement = Arrangement.spacedBy(metrics.chipSpacing)
     ) {
         recurrencePatterns.forEach { pattern ->
             val selected = normalized == pattern
@@ -68,7 +72,7 @@ fun RecurrenceSelector(
                     borderColor = recurrenceContainerColor(pattern),
                     selectedBorderColor = Color(0xFFFF7A00)
                 ),
-                modifier = Modifier.padding(vertical = 2.dp)
+                modifier = Modifier.padding(vertical = metrics.chipSpacing / 4)
             )
         }
     }

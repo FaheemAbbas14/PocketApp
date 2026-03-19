@@ -85,6 +85,7 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 import java.util.Calendar
 import java.util.Locale
 
@@ -95,6 +96,7 @@ fun PaymentsScreen(
     onEdit: (PaymentItem) -> Unit = {},
     onDelete: (PaymentItem) -> Unit = {}
 ) {
+    val metrics = rememberResponsiveMetrics()
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedPeriod by remember { mutableStateOf(FilterPeriod.ALL) }
     var activeDateRange by remember { mutableStateOf<DateRange?>(null) }
@@ -150,7 +152,7 @@ fun PaymentsScreen(
                 }
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(metrics.sectionSpacing),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredPayments) { payment ->
@@ -174,6 +176,7 @@ fun PaymentCard(
     onEdit: (PaymentItem) -> Unit = {},
     onDelete: (PaymentItem) -> Unit = {}
 ) {
+    val metrics = rememberResponsiveMetrics()
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val typeIcon = if (payment.paymentType == "have_to_take") "📥" else "📤"
     val typeLabel = if (payment.paymentType == "have_to_take") "Have to Take" else "Have to Give"
@@ -184,7 +187,7 @@ fun PaymentCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(metrics.cardPadding)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(payment.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = { showDeleteConfirm = true }) {
@@ -210,13 +213,13 @@ fun PaymentCard(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("🔗 ${payment.attachmentUrl}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing))
             Text("📅 ${formatDateTime(payment.scheduledAtMillis)}", style = MaterialTheme.typography.labelMedium)
             if (payment.scheduledAtMillis < System.currentTimeMillis()) {
                 Text("⚠️ Overdue", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(modifier = Modifier.height(metrics.sectionSpacing / 2))
+            Row(horizontalArrangement = Arrangement.spacedBy(metrics.chipSpacing)) {
                 PriorityBadge(priority = payment.priority)
                 if (payment.recurrencePattern != "none") {
                     RecurrenceBadge(pattern = payment.recurrencePattern)
