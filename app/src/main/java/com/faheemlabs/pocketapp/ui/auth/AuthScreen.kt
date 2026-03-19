@@ -55,6 +55,7 @@ import com.faheemlabs.pocketapp.R
 fun AuthScreen(
     viewModel: MainViewModel,
     context: android.content.Context,
+    onRegisterClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -311,10 +312,7 @@ fun AuthScreen(
 
                     // Register Button with Outline
                     Button(
-                        onClick = {
-                            AuthCache.saveCredentials(context, email, password, rememberMe)
-                            viewModel.register(email.trim(), password)
-                        },
+                        onClick = onRegisterClick,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),

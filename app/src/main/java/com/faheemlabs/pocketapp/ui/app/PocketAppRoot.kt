@@ -35,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import com.faheemlabs.pocketapp.PaymentItem
 import com.faheemlabs.pocketapp.PocketUiState
 import com.faheemlabs.pocketapp.TaskItem
 import com.faheemlabs.pocketapp.ui.auth.AuthScreen
+import com.faheemlabs.pocketapp.ui.auth.RegistrationScreen
 import com.faheemlabs.pocketapp.ui.common.SettingsScreen
 import com.faheemlabs.pocketapp.ui.events.AddEventDialog
 import com.faheemlabs.pocketapp.ui.events.EditEventDialog
@@ -77,6 +79,11 @@ private enum class BottomNavTab(val emoji: String, val labelRes: Int, val subtit
     SETTINGS_TAB("⚙", R.string.settings, R.string.settings_subtitle)
 }
 
+private enum class AuthRoute {
+    LOGIN,
+    REGISTER
+}
+
 @Composable
 fun PocketAppRoot(
     viewModel: MainViewModel,
@@ -86,9 +93,24 @@ fun PocketAppRoot(
     notificationItemId: String? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var authRoute by rememberSaveable { mutableStateOf(AuthRoute.LOGIN) }
 
     if (uiState.currentUserEmail == null) {
-        AuthScreen(viewModel = viewModel, context = context, modifier = modifier)
+        when (authRoute) {
+            AuthRoute.LOGIN -> AuthScreen(
+                viewModel = viewModel,
+                context = context,
+                modifier = modifier,
+                onRegisterClick = { authRoute = AuthRoute.REGISTER }
+            )
+
+            AuthRoute.REGISTER -> RegistrationScreen(
+                viewModel = viewModel,
+                context = context,
+                modifier = modifier,
+                onBackToLogin = { authRoute = AuthRoute.LOGIN }
+            )
+        }
     } else {
         HomeScreenWithBottomNav(
             viewModel = viewModel,

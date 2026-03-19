@@ -142,4 +142,9 @@
     <string name="change_password_action">Change Password</string>
     <string name="cd_password">Password</string>
     <string name="cd_confirm_password">Confirm Password</string>
+    <string name="register_screen_title">Create Account</string>
+    <string name="register_screen_subtitle">Join Pocket App and start organizing smarter</string>
+    <string name="create_account_heading">Create your new account</string>
+    <string name="back_to_login">Back to Login</string>
+    <string name="passwords_do_not_match">Passwords do not match.</string>
 </resources>
