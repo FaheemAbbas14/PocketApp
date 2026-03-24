@@ -4,13 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -29,21 +30,26 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,7 +64,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.faheemlabs.pocketapp.AlarmScheduler
 import com.faheemlabs.pocketapp.AppLockManager
-import com.faheemlabs.pocketapp.AuthCache
 import com.faheemlabs.pocketapp.EventItem
 import com.faheemlabs.pocketapp.ExpenseItem
 import com.faheemlabs.pocketapp.MainViewModel
@@ -87,17 +92,18 @@ import com.faheemlabs.pocketapp.ui.tasks.EditTaskDialog
 import com.faheemlabs.pocketapp.ui.tasks.TasksScreen
 import com.faheemlabs.pocketapp.ui.theme.rememberResponsiveMetrics
 import com.faheemlabs.pocketapp.R
+import kotlinx.coroutines.launch
 
-private enum class BottomNavTab(val icon: ImageVector, val labelRes: Int, val subtitleRes: Int) {
-    DASHBOARD_TAB(Icons.Filled.Home, R.string.tab_dashboard, R.string.tab_dashboard_subtitle),
-    SEARCH_TAB(Icons.Filled.Search, R.string.tab_search, R.string.tab_search_subtitle),
-    CALENDAR_TAB(Icons.Filled.DateRange, R.string.tab_calendar, R.string.tab_calendar_subtitle),
-    REPORTS_TAB(Icons.Filled.Assessment, R.string.tab_reports, R.string.tab_reports_subtitle),
-    TASK_TAB(Icons.AutoMirrored.Filled.Assignment, R.string.tab_tasks, R.string.tab_tasks_subtitle),
-    EXPENSE_TAB(Icons.Filled.AttachMoney, R.string.tab_expenses, R.string.tab_expenses_subtitle),
-    EVENT_TAB(Icons.Filled.Event, R.string.tab_events, R.string.tab_events_subtitle),
-    PAYMENT_TAB(Icons.Filled.AccountBalanceWallet, R.string.tab_payments, R.string.tab_payments_subtitle),
-    SETTINGS_TAB(Icons.Filled.Settings, R.string.settings, R.string.settings_subtitle)
+private enum class AppSection(val icon: ImageVector, val labelRes: Int, val subtitleRes: Int) {
+    DASHBOARD(Icons.Filled.Home, R.string.tab_dashboard, R.string.tab_dashboard_subtitle),
+    SEARCH(Icons.Filled.Search, R.string.tab_search, R.string.tab_search_subtitle),
+    CALENDAR(Icons.Filled.DateRange, R.string.tab_calendar, R.string.tab_calendar_subtitle),
+    REPORTS(Icons.Filled.Assessment, R.string.tab_reports, R.string.tab_reports_subtitle),
+    TASKS(Icons.AutoMirrored.Filled.Assignment, R.string.tab_tasks, R.string.tab_tasks_subtitle),
+    EXPENSES(Icons.Filled.AttachMoney, R.string.tab_expenses, R.string.tab_expenses_subtitle),
+    EVENTS(Icons.Filled.Event, R.string.tab_events, R.string.tab_events_subtitle),
+    PAYMENTS(Icons.Filled.AccountBalanceWallet, R.string.tab_payments, R.string.tab_payments_subtitle),
+    SETTINGS(Icons.Filled.Settings, R.string.settings, R.string.settings_subtitle)
 }
 
 private enum class AuthRoute {
@@ -141,7 +147,7 @@ fun PocketAppRoot(
             modifier = modifier
         )
     } else {
-        HomeScreenWithBottomNav(
+        HomeScreenWithSideMenu(
             viewModel = viewModel,
             uiState = uiState,
             context = context,
@@ -154,7 +160,7 @@ fun PocketAppRoot(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreenWithBottomNav(
+private fun HomeScreenWithSideMenu(
     viewModel: MainViewModel,
     uiState: PocketUiState,
     context: android.content.Context,
@@ -163,16 +169,10 @@ private fun HomeScreenWithBottomNav(
     notificationItemId: String? = null
 ) {
     val metrics = rememberResponsiveMetrics()
-    var selectedTab by remember {
-        mutableStateOf(
-            when (notificationModule) {
-                AlarmScheduler.MODULE_TASK -> BottomNavTab.TASK_TAB
-                AlarmScheduler.MODULE_EXPENSE -> BottomNavTab.EXPENSE_TAB
-                AlarmScheduler.MODULE_EVENT -> BottomNavTab.EVENT_TAB
-                AlarmScheduler.MODULE_PAYMENT -> BottomNavTab.PAYMENT_TAB
-                else -> BottomNavTab.DASHBOARD_TAB
-            }
-        )
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    var selectedSection by rememberSaveable(notificationModule, notificationItemId) {
+        mutableStateOf(initialSectionFor(notificationModule))
     }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingTask: TaskItem? by remember { mutableStateOf(null) }
@@ -180,242 +180,168 @@ private fun HomeScreenWithBottomNav(
     var editingEvent: EventItem? by remember { mutableStateOf(null) }
     var editingPayment: PaymentItem? by remember { mutableStateOf(null) }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            Surface(
-                shadowElevation = 8.dp,
-                tonalElevation = 0.dp
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFFFF7A00), // Orange
-                                    Color(0xFFFF9E00)  // Light Orange
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AppNavigationDrawer(
+                uiState = uiState,
+                selectedSection = selectedSection,
+                drawerState = drawerState,
+                onSectionSelected = { section ->
+                    selectedSection = section
+                    showAddDialog = false
+                    scope.launch { drawerState.close() }
+                }
+            )
+        }
+    ) {
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            topBar = {
+                Surface(
+                    shadowElevation = 8.dp,
+                    tonalElevation = 0.dp
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFFFF7A00), // Orange
+                                        Color(0xFFFF9E00)  // Light Orange
+                                    )
                                 )
                             )
-                        )
-                ) {
-                    CenterAlignedTopAppBar(
-                        title = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(metrics.topBadgeSize)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.2f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                    ) {
+                        CenterAlignedTopAppBar(
+                            title = {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        "💰",
-                                        fontSize = 20.sp
-                                    )
-                                }
-                                Column(horizontalAlignment = Alignment.Start) {
-                                    Text(
-                                        stringResource(R.string.pocket_app_title),
+                                        text = stringResource(selectedSection.labelRes),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
                                     )
                                     Text(
-                                        text = uiState.currentUserEmail.orEmpty(),
+                                        text = stringResource(selectedSection.subtitleRes),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = Color.White.copy(alpha = 0.9f)
                                     )
                                 }
-                            }
-                        },
-                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                            containerColor = Color.Transparent
-                        )
-                    )
-                }
-            }
-        },
-        bottomBar = {
-            Surface(
-                shadowElevation = 16.dp,
-                tonalElevation = 0.dp
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFFFFF8F0), // Very light orange
-                                    Color.White
-                                )
+                            },
+                            navigationIcon = {
+                                IconButton(onClick = {
+                                    scope.launch { drawerState.open() }
+                                }) {
+                                    Icon(
+                                        Icons.Filled.Menu,
+                                        contentDescription = stringResource(R.string.menu),
+                                        tint = Color.White
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                containerColor = Color.Transparent
                             )
                         )
-                ) {
-                    NavigationBar(
-                        containerColor = Color.Transparent,
-                        tonalElevation = 0.dp
+                    }
+                }
+            },
+            floatingActionButton = {
+                if (selectedSection.showsAddAction()) {
+                    FloatingActionButton(
+                        onClick = { showAddDialog = true },
+                        containerColor = Color(0xFFFF7A00),
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        BottomNavTab.entries.forEach { tab ->
-                            val selected = selectedTab == tab
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = { selectedTab = tab },
-                                icon = {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(metrics.navItemSize)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .then(
-                                                if (selected)
-                                                    Modifier.background(
-                                                        Brush.linearGradient(
-                                                            colors = listOf(
-                                                                Color(0xFFFF7A00),
-                                                                Color(0xFFFF9E00)
-                                                            )
-                                                        )
-                                                    )
-                                                else
-                                                    Modifier
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = tab.icon,
-                                            contentDescription = stringResource(tab.labelRes),
-                                            tint = if (selected) Color.White else Color(0xFF8F4A00),
-                                            modifier = Modifier.size(
-                                                if (selected) metrics.navIconSize + 2.dp else metrics.navIconSize
-                                            )
-                                        )
-                                    }
-                                },
-                                alwaysShowLabel = false,
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Color.White,
-                                    indicatorColor = Color.Transparent,
-                                    unselectedIconColor = Color(0xFF8F4A00)
-                                )
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.cd_add),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFFFF8F0), // Very light orange
+                                Color(0xFFFFF0E0), // Light peach
+                                Color.White
+                            ),
+                            startY = 0f,
+                            endY = 1500f
+                        )
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(
+                            horizontal = metrics.screenHorizontalPadding,
+                            vertical = metrics.screenVerticalPadding
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(metrics.sectionSpacing)
+                ) {
+                    if (uiState.errorMessage != null) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                uiState.errorMessage,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(12.dp)
                             )
                         }
                     }
-                }
-            }
-        },
-        floatingActionButton = {
-            if (
-                selectedTab != BottomNavTab.SETTINGS_TAB &&
-                selectedTab != BottomNavTab.DASHBOARD_TAB &&
-                selectedTab != BottomNavTab.SEARCH_TAB &&
-                selectedTab != BottomNavTab.CALENDAR_TAB &&
-                selectedTab != BottomNavTab.REPORTS_TAB
-            ) {
-                FloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    containerColor = Color(0xFFFF7A00),
-                    contentColor = Color.White,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.cd_add),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-        },
-        containerColor = Color.Transparent
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFFFF8F0), // Very light orange
-                            Color(0xFFFFF0E0), // Light peach
-                            Color.White
-                        ),
-                        startY = 0f,
-                        endY = 1500f
-                    )
-                )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(
-                        horizontal = metrics.screenHorizontalPadding,
-                        vertical = metrics.screenVerticalPadding
-                    )
-            ) {
-                if (uiState.errorMessage != null) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            uiState.errorMessage,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(12.dp)
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        when (selectedSection) {
+                            AppSection.DASHBOARD -> DashboardScreen(uiState = uiState)
+                            AppSection.SEARCH -> SearchScreen(uiState = uiState)
+                            AppSection.CALENDAR -> CalendarScreen(uiState = uiState)
+                            AppSection.REPORTS -> ReportsScreen(uiState = uiState)
+                            AppSection.TASKS -> TasksScreen(uiState.tasks, onEdit = { editingTask = it }, onDelete = { viewModel.deleteTask(it) })
+                            AppSection.EXPENSES -> ExpensesScreen(
+                            expenses = uiState.expenses,
+                            budgetState = uiState.expenseBudget,
+                            onSetBudget = { amount, currency -> viewModel.setExpenseMonthlyBudget(amount, currency) },
+                            onClearBudget = { viewModel.clearExpenseMonthlyBudget() },
+                            onEdit = { editingExpense = it },
+                            onDelete = { viewModel.deleteExpense(it) }
                         )
+                            AppSection.EVENTS -> EventsScreen(uiState.events, onEdit = { editingEvent = it }, onDelete = { viewModel.deleteEvent(it) })
+                            AppSection.PAYMENTS -> PaymentsScreen(uiState.payments, onEdit = { editingPayment = it }, onDelete = { viewModel.deletePayment(it) })
+                            AppSection.SETTINGS -> SettingsScreen(viewModel = viewModel, context = context)
+                        }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                Text(
-                    text = stringResource(selectedTab.labelRes),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF7A00)
-                )
-                Text(
-                    text = stringResource(selectedTab.subtitleRes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                when (selectedTab) {
-                    BottomNavTab.DASHBOARD_TAB -> DashboardScreen(uiState = uiState)
-                    BottomNavTab.SEARCH_TAB -> SearchScreen(uiState = uiState)
-                    BottomNavTab.CALENDAR_TAB -> CalendarScreen(uiState = uiState)
-                    BottomNavTab.REPORTS_TAB -> ReportsScreen(uiState = uiState)
-                    BottomNavTab.TASK_TAB -> TasksScreen(uiState.tasks, onEdit = { editingTask = it }, onDelete = { viewModel.deleteTask(it) })
-                    BottomNavTab.EXPENSE_TAB -> ExpensesScreen(
-                        expenses = uiState.expenses,
-                        budgetState = uiState.expenseBudget,
-                        onSetBudget = { amount, currency -> viewModel.setExpenseMonthlyBudget(amount, currency) },
-                        onClearBudget = { viewModel.clearExpenseMonthlyBudget() },
-                        onEdit = { editingExpense = it },
-                        onDelete = { viewModel.deleteExpense(it) }
-                    )
-                    BottomNavTab.EVENT_TAB -> EventsScreen(uiState.events, onEdit = { editingEvent = it }, onDelete = { viewModel.deleteEvent(it) })
-                    BottomNavTab.PAYMENT_TAB -> PaymentsScreen(uiState.payments, onEdit = { editingPayment = it }, onDelete = { viewModel.deletePayment(it) })
-                    BottomNavTab.SETTINGS_TAB -> SettingsScreen(viewModel = viewModel, context = context)
                 }
             }
         }
     }
 
     if (showAddDialog) {
-        when (selectedTab) {
-            BottomNavTab.DASHBOARD_TAB -> {}
-            BottomNavTab.SEARCH_TAB -> {}
-            BottomNavTab.CALENDAR_TAB -> {}
-            BottomNavTab.REPORTS_TAB -> {}
-            BottomNavTab.TASK_TAB -> AddTaskDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
-            BottomNavTab.EXPENSE_TAB -> AddExpenseDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
-            BottomNavTab.EVENT_TAB -> AddEventDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
-            BottomNavTab.PAYMENT_TAB -> AddPaymentDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
-            BottomNavTab.SETTINGS_TAB -> {} // No add dialog for settings
+        when (selectedSection) {
+            AppSection.DASHBOARD,
+            AppSection.SEARCH,
+            AppSection.CALENDAR,
+            AppSection.REPORTS,
+            AppSection.SETTINGS -> Unit
+            AppSection.TASKS -> AddTaskDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
+            AppSection.EXPENSES -> AddExpenseDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
+            AppSection.EVENTS -> AddEventDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
+            AppSection.PAYMENTS -> AddPaymentDialog(viewModel = viewModel, onDismiss = { showAddDialog = false })
         }
     }
 
@@ -424,3 +350,141 @@ private fun HomeScreenWithBottomNav(
     editingEvent?.let { EditEventDialog(event = it, viewModel = viewModel, onDismiss = { editingEvent = null }) }
     editingPayment?.let { EditPaymentDialog(payment = it, viewModel = viewModel, onDismiss = { editingPayment = null }) }
 }
+
+@Composable
+private fun AppNavigationDrawer(
+    uiState: PocketUiState,
+    selectedSection: AppSection,
+    drawerState: androidx.compose.material3.DrawerState,
+    onSectionSelected: (AppSection) -> Unit
+) {
+    ModalDrawerSheet(
+        modifier = Modifier
+            .fillMaxHeight()
+            .widthIn(max = 320.dp),
+        drawerContainerColor = Color(0xFFFFFCF8)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.Transparent
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color(0xFFFF8D24), Color(0xFFFFB04D))
+                            ),
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                        .padding(18.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.22f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("💰", fontSize = 24.sp, color = Color.White)
+                        }
+                        Text(
+                            text = stringResource(R.string.pocket_app_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = uiState.currentUserEmail.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.92f)
+                        )
+                        Text(
+                            text = stringResource(selectedSection.subtitleRes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.88f)
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = stringResource(R.string.menu),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+
+            AppSection.entries.forEach { section ->
+                NavigationDrawerItem(
+                    icon = {
+                        Icon(
+                            imageVector = section.icon,
+                            contentDescription = stringResource(section.labelRes)
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = stringResource(section.labelRes),
+                            fontWeight = if (selectedSection == section) FontWeight.SemiBold else FontWeight.Medium
+                        )
+                    },
+                    selected = selectedSection == section,
+                    onClick = { onSectionSelected(section) },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = Color(0xFFFFE4C6),
+                        selectedIconColor = Color(0xFFFF7A00),
+                        selectedTextColor = Color(0xFF9C4F00),
+                        unselectedContainerColor = Color.Transparent,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text(
+                text = if (drawerState.isOpen) stringResource(selectedSection.labelRes) else stringResource(R.string.pocket_short),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
+    }
+}
+
+
+private fun initialSectionFor(notificationModule: String?): AppSection {
+    return when (notificationModule) {
+        AlarmScheduler.MODULE_TASK -> AppSection.TASKS
+        AlarmScheduler.MODULE_EXPENSE -> AppSection.EXPENSES
+        AlarmScheduler.MODULE_EVENT -> AppSection.EVENTS
+        AlarmScheduler.MODULE_PAYMENT -> AppSection.PAYMENTS
+        else -> AppSection.DASHBOARD
+    }
+}
+
+private fun AppSection.showsAddAction(): Boolean {
+    return when (this) {
+        AppSection.TASKS,
+        AppSection.EXPENSES,
+        AppSection.EVENTS,
+        AppSection.PAYMENTS -> true
+        AppSection.DASHBOARD,
+        AppSection.SEARCH,
+        AppSection.CALENDAR,
+        AppSection.REPORTS,
+        AppSection.SETTINGS -> false
+    }
+}
+

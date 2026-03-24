@@ -42,6 +42,7 @@
 
     <string name="cd_add">Add</string>
     <string name="cd_delete">Delete</string>
+    <string name="menu">Menu</string>
 
     <string name="no_tasks_yet">No tasks yet</string>
     <string name="add_task">Add task</string>
